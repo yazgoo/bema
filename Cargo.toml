@@ -1,0 +1,14 @@
+[package]
+name = "bema"
+version = "0.0.1"
+authors = ["yazgoo <yazgoo@gmail.com>"]
+edition = "2018"
+license = "MIT"
+description = "presentation in the terminal"
+readme = "README.md"
+homepage = "https://github.com/yazgoo/bema"
+repository = "https://github.com/yazgoo/bema"
+keywords = ["terminal"]
+categories = []
+
+[dependencies]
