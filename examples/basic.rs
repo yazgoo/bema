@@ -4,34 +4,37 @@ use bema::*;
 
 fn main() {
 
-    slides(|| {
+    slides(|mut b| {
 
-        slide("a slide with just text", || {
-            text("text in the first slide");
-            text("");
-            t("t is an alias for text");
-
+        b.slide("a slide with just text", |mut s| {
+            s.text("text in the first slide");
+            s.text("");
+            s.t("t is an alias for text");
+            s
         });
 
-        slide("code", || {
-            code("rb", r#"
-              def example_code(a, b)
+        b.slide("code", |mut s| {
+            s.code("rb", r#"
+              def examplescode(a, b)
                 p a
               end
                 "#);
+            s
         });
 
-        slide("diagram (require dot (graphviz))", || {
-            diagram(r#"
+        b.slide("diagram (require dot (graphviz))", |mut s| {
+            s.diagram(r#"
             diagram 'digraph {
               a b
               dpi = 55
             }
         "#);
+            s
         });
 
-        slide("image", || {
-            image("");
+        b.slide("image", |mut s| {
+            s.image("");
+            s
         });
 
     });
