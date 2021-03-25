@@ -1,4 +1,5 @@
 trait SlideItem {
+    fn render(&self);
 }
 
 struct Code {
@@ -7,6 +8,10 @@ struct Code {
 }
 
 impl SlideItem for Code {
+    fn render(&self) {
+        println!("{}", self.extension);
+        println!("{}", self.source);
+    }
 }
 
 struct Text {
@@ -14,6 +19,9 @@ struct Text {
 }
 
 impl SlideItem for Text {
+    fn render(&self) {
+        println!("{}", self.text);
+    }
 }
 
 struct Image {
@@ -21,6 +29,9 @@ struct Image {
 }
 
 impl SlideItem for Image {
+    fn render(&self) {
+        println!("{}", self.image);
+    }
 }
 
 struct Diagram {
@@ -28,6 +39,9 @@ struct Diagram {
 }
 
 impl SlideItem for Diagram {
+    fn render(&self) {
+        println!("{}", self.diagram);
+    }
 }
 
 pub struct Slide {
@@ -39,11 +53,19 @@ pub struct Bema {
     slides: Vec<Slide>
 }
 
-pub fn slides(f: fn(Bema) -> ()) {
-    let mut bema = Bema { 
+pub fn slides(f: fn(Bema) -> Bema) -> Bema {
+    f(Bema { 
         slides: vec![],
-    };
-    f(bema);
+    })
+}
+
+impl Slide {
+    pub fn render(&self) {
+        println!("{}", self.title);
+        for item in &self.items {
+            item.render();
+        }
+    }
 }
 
 impl Bema {
@@ -53,6 +75,11 @@ impl Bema {
             items: vec![],
         };
         self.slides.push(f(s));
+    }
+    pub fn run(&self) {
+        for slide in &self.slides {
+            slide.render();
+        }
     }
 }
 
