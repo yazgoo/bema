@@ -12,3 +12,8 @@ keywords = ["terminal"]
 categories = []
 
 [dependencies]
+crossterm = "0.18"
+syntect = "4.4"
+
+[dev-dependencies]
+indoc = "1.0"

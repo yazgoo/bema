@@ -1,43 +1,39 @@
 extern crate bema;
 
 use bema::*;
+use indoc::indoc;
 
 fn main() {
 
-    slides(|mut b| {
+    slides(|b| {
 
-        b.slide("a slide with just text", |mut s| {
-            s.text("text in the first slide");
-            s.text("");
-            s.t("t is an alias for text");
-            s
-        });
+        b.slide("a slide with just text", |s| {
+            s.text("text in the first slide")
+            .text("")
+            .t("t is an alias for text")
+        })
 
-        b.slide("code", |mut s| {
-            s.code("rb", r#"
+        .slide("code", |s| {
+            s.code("rb", indoc! {r#"
               def examplescode(a, b)
                 p a
               end
-                "#);
-            s
-        });
+                "#})
+        })
 
-        b.slide("diagram (require dot (graphviz))", |mut s| {
-            s.diagram(r#"
+        .slide("diagram (require dot (graphviz))", |s| {
+            s.diagram(indoc! {r#"
             diagram 'digraph {
               a b
               dpi = 55
             }
-        "#);
-            s
-        });
+        "#})
+        })
 
-        b.slide("image", |mut s| {
-            s.image("");
-            s
-        });
+        .slide("image", |s| {
+            s.image("")
+        })
 
-        b
     }).run()
 
 }
