@@ -2,6 +2,7 @@ extern crate bema;
 
 use bema::*;
 use indoc::indoc;
+use compile_time_run::run_command;
 
 fn main() {
 
@@ -14,26 +15,40 @@ fn main() {
         })
 
         .slide("code", |s| {
-            s.code("rb", indoc! {r#"
-              def examplescode(a, b)
-                p a
-              end
+            s.t("helloworld.rb").t("")
+            .code("rb", indoc! {r#"
+              puts 'Hello, world!'
+              "#})
+            .t("").t("helloworld.c").t("")
+            .code("c", indoc! {r#"
+                #include <stdio.h>
+                int main() {
+                   printf("Hello, World!");
+                   return 0;
+                }
                 "#})
         })
 
-        .slide("diagram (require dot (graphviz))", |s| {
-            s.diagram(indoc! {r#"
-            diagram 'digraph {
-              a b
-              dpi = 55
+        .slide("diagram - requires dot (graphviz) at compile time", |s| {
+            s.image(run_command!("sh", "-c", r##"echo '
+            digraph X {
+                rankdir = "LR"
+                bgcolor= "transparent"
+                node [ style=filled,fill="#65b2ff", fontname = "helvetica", shape = "rectangle" ]
+                edge [ color="#65b2ff" , fontname = "helvetica", fontcolor="#65b2ff"]
+                graph [ fontname = "helvetica", color="#3f6190", fontcolor="#3f6190", nodesep="0" ];
+                a -> b -> c
+                b -> d
+                dpi=200
             }
-        "#})
+            ' | dot -Tpng"##), ".png")
         })
 
         .slide("image", |s| {
-            s.image("")
+            s.image(include_bytes!("capybara.jpg"), ".jpg")
         })
 
-    }).run()
+    }).run().unwrap();
+
 
 }
