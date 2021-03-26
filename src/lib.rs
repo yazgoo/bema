@@ -9,7 +9,7 @@ use crossterm::{
     cursor::{MoveTo, MoveRight, Hide, Show},
     event::{Event, KeyCode, KeyEvent},
     style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor, Attribute, SetAttribute},
-    terminal::{Clear, ClearType, enable_raw_mode, disable_raw_mode, self},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, Clear, ClearType, enable_raw_mode, disable_raw_mode, self},
     ExecutableCommand, Result,
     event,
 };
@@ -60,8 +60,8 @@ fn get_justify(texts: Vec<&String>) -> Result<usize> {
 
 }
 
-fn justify_center(text: &String) -> Result<()> {
-    let whitespaces = get_justify(vec![text])?;
+fn justify_center(text: Vec<&String>) -> Result<()> {
+    let whitespaces = get_justify(text)?;
     stdout()
         .execute(MoveRight(whitespaces as u16))?;
     Ok(())
@@ -90,8 +90,8 @@ impl SlideItem for Code {
             let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
             let escaped = as_24_bit_terminal_escaped(&ranges[..], true);
             stdout()
-                .execute(ResetColor)?;
-            for _ in 0..whitespaces { print!(" ") }
+                .execute(ResetColor)?
+                .execute(MoveRight(whitespaces as u16))?;
             print!("{}", escaped);
         }
 
@@ -108,8 +108,13 @@ struct Text {
 
 impl SlideItem for Text {
     fn render(&self) -> Result<()> {
-        justify_center(&self.text)?;
-        println!("{}", self.text);
+        let splits = self.text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
+        let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
+        let whitespaces = get_justify(v2)?;
+        for split in splits {
+            stdout().execute(MoveRight(whitespaces as u16))?;
+            println!("{}", split);
+        }
         Ok(())
     }
 }
@@ -151,7 +156,7 @@ pub fn slides(f: fn(Bema) -> Bema) -> Bema {
 impl Slide {
     pub fn render(&self) -> Result<()> {
 
-        justify_center(&self.title)?;
+        justify_center(vec![&self.title])?;
 
         stdout()
         .execute(SetAttribute(Attribute::Bold))?
@@ -202,6 +207,7 @@ impl Bema {
         }
     }
     pub fn run(&self) -> Result<()> {
+        execute!(stdout(), EnterAlternateScreen)?;
         self.clear_screen()?;
 
         execute!(
@@ -243,6 +249,8 @@ impl Bema {
             stdout(),
             Show
         )?;
+
+        execute!(stdout(), LeaveAlternateScreen)?;
 
         Ok(())
     }

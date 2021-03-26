@@ -12,14 +12,20 @@ fn main() {
             s.text("text in the first slide")
             .text("")
             .t("t is an alias for text")
+            .text("")
+            .text("multi line text is also supported:")
+            .text(indoc! {"
+
+            • this is very usefull
+            • for lists
+            • while keeping them
+            • centered
+
+                "})
         })
 
         .slide("code", |s| {
-            s.t("helloworld.rb").t("")
-            .code("rb", indoc! {r#"
-              puts 'Hello, world!'
-              "#})
-            .t("").t("helloworld.c").t("")
+            s.t("").t("helloworld.c").t("")
             .code("c", indoc! {r#"
                 #include <stdio.h>
                 int main() {
@@ -39,7 +45,7 @@ fn main() {
                 graph [ fontname = "helvetica", color="#3f6190", fontcolor="#3f6190", nodesep="0" ];
                 a -> b -> c
                 b -> d
-                dpi=200
+                dpi=500
             }
             ' | dot -Tpng"##), ".png")
         })
