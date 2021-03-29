@@ -19,6 +19,29 @@ use syntect::parsing::SyntaxSet;
 use syntect::highlighting::{ThemeSet, Style};
 use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
 
+enum SlideItem {
+    Code{ extension: String, source: String },
+    Image{ image: &'static [u8], extension: String },
+    Text{ text: String },
+}
+
+pub struct Slide {
+    title: String,
+    items: Vec<SlideItem>,
+}
+
+pub struct Bema {
+    slides: Vec<Slide>
+}
+
+trait Runner {
+    fn run(&self, bema: &Bema) -> Result<()>;
+}
+
+struct TerminalRunner {
+}
+
+
 fn display_image(image_path: &String) {
     match env::var("KITTY_WINDOW_ID") {
         Ok(_) => {
@@ -67,125 +90,8 @@ fn justify_center(text: Vec<&String>) -> Result<()> {
     Ok(())
 }
 
-trait SlideItem {
-    fn render(&self) -> Result<()>;
-}
-
-struct Code {
-    extension: String,
-    source: String,
-}
-
-impl SlideItem for Code {
-    fn render(&self) -> Result<()> {
-        let ps = SyntaxSet::load_defaults_newlines();
-        let ts = ThemeSet::load_defaults();
-
-        let syntax = ps.find_syntax_by_extension(&self.extension).unwrap();
-        let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
-        let splits = self.source.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
-        let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
-        let whitespaces = get_justify(v2)? as usize;
-        for line in LinesWithEndings::from(&self.source) {
-            let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
-            let escaped = as_24_bit_terminal_escaped(&ranges[..], true);
-            stdout()
-                .execute(ResetColor)?
-                .execute(MoveRight(whitespaces as u16))?;
-            print!("{}", escaped);
-        }
-
-        stdout()
-        .execute(ResetColor)?;
-
-        Ok(())
-    }
-}
-
-struct Text {
-    text: String
-}
-
-impl SlideItem for Text {
-    fn render(&self) -> Result<()> {
-        let splits = self.text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
-        let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
-        let whitespaces = get_justify(v2)?;
-        for split in splits {
-            stdout().execute(MoveRight(whitespaces as u16))?;
-            println!("{}", split);
-        }
-        Ok(())
-    }
-}
-
-struct Image {
-    image: &'static [u8],
-    extension: String,
-}
-
-impl SlideItem for Image {
-    fn render(&self) -> Result<()> {
-
-        let mut file = Builder::new()
-            .prefix("image")
-            .suffix(&self.extension)
-            .rand_bytes(5)
-            .tempfile()?;
-        file.write(self.image)?;
-        display_image(&file.path().to_str().unwrap().to_string());
-        Ok(())
-    }
-}
-
-pub struct Slide {
-    title: String,
-    items: Vec<Box<dyn SlideItem>>,
-}
-
-pub struct Bema {
-    slides: Vec<Slide>
-}
-
-pub fn slides(f: fn(Bema) -> Bema) -> Bema {
-    f(Bema { 
-        slides: vec![],
-    })
-}
-
-impl Slide {
-    pub fn render(&self) -> Result<()> {
-
-        justify_center(vec![&self.title])?;
-
-        stdout()
-        .execute(SetAttribute(Attribute::Bold))?
-        .execute(SetForegroundColor(Color::Blue))?
-        .execute(SetBackgroundColor(Color::Black))?
-        .execute(Print(self.title.to_string()))?
-        .execute(ResetColor)?
-        .execute(Print("\n\n"))?;
-
-        for item in &self.items {
-            let _ = item.render();
-        }
-
-        Ok(())
-    }
-}
-
-impl Bema {
-    pub fn slide(mut self, title: &str, f: fn(Slide) -> Slide) -> Bema {
-
-        let s = Slide {
-            title: String::from(title),
-            items: vec![],
-        };
-        self.slides.push(f(s));
-        self
-    }
-
-    pub fn clear_screen(&self) -> Result<()> {
+impl TerminalRunner {
+    fn clear_screen(&self) -> Result<()> {
 
         stdout()
             .execute(Clear(ClearType::All))?;
@@ -193,7 +99,7 @@ impl Bema {
         Ok(())
     }
 
-    pub fn read_char(&self) -> Result<char> {
+    fn read_char(&self) -> Result<char> {
         enable_raw_mode()?;
         loop {
             if let Event::Key(KeyEvent {
@@ -206,7 +112,72 @@ impl Bema {
             }
         }
     }
-    pub fn run(&self) -> Result<()> {
+
+    fn render_slide(&self, slide: &Slide) -> Result<()> {
+
+        justify_center(vec![&slide.title])?;
+
+        stdout()
+        .execute(SetAttribute(Attribute::Bold))?
+        .execute(SetForegroundColor(Color::Blue))?
+        .execute(SetBackgroundColor(Color::Black))?
+        .execute(Print(slide.title.to_string()))?
+        .execute(ResetColor)?
+        .execute(Print("\n\n"))?;
+
+        for item in &slide.items {
+            match item {
+                SlideItem::Image { image, extension } => {
+                    let mut file = Builder::new()
+                        .prefix("image")
+                        .suffix(extension)
+                        .rand_bytes(5)
+                        .tempfile()?;
+                    file.write(image)?;
+                    display_image(&file.path().to_str().unwrap().to_string());
+                },
+                SlideItem::Code { extension, source } => {
+                    let ps = SyntaxSet::load_defaults_newlines();
+                    let ts = ThemeSet::load_defaults();
+
+                    let syntax = ps.find_syntax_by_extension(extension).unwrap();
+                    let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
+                    let splits = source.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
+                    let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
+                    let whitespaces = get_justify(v2)? as usize;
+                    for line in LinesWithEndings::from(source) {
+                        let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
+                        let escaped = as_24_bit_terminal_escaped(&ranges[..], true);
+                        stdout()
+                            .execute(ResetColor)?
+                            .execute(MoveRight(whitespaces as u16))?;
+                        print!("{}", escaped);
+                    }
+
+                    stdout()
+                        .execute(ResetColor)?;
+                    },
+                SlideItem::Text { text } => {
+                    let splits = text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
+                    let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
+                    let whitespaces = get_justify(v2)?;
+                    for split in splits {
+                        stdout().execute(MoveRight(whitespaces as u16))?;
+                        println!("{}", split);
+                    }
+                },
+            }
+            //let _ = item.render();
+        }
+
+        Ok(())
+    }
+
+}
+
+impl Runner for TerminalRunner {
+
+    fn run(&self, bema: &Bema) -> Result<()> {
         execute!(stdout(), EnterAlternateScreen)?;
         self.clear_screen()?;
 
@@ -221,17 +192,17 @@ impl Bema {
                 let c = self.read_char()?;
                 match c {
                     'g' => i = 0,
-                    'G' => i = self.slides.len() as i16 - 1,
+                    'G' => i = bema.slides.len() as i16 - 1,
                     'n'|'j'|'l' => i+=1,
                     'p'|'k'|'h' => i-=1,
                     'q' => break,
                     _ => {}
                 }
-                if i as usize >= self.slides.len() {
+                if i as usize >= bema.slides.len() {
                     i = 0;
                 }
                 if i < 0 {
-                    i = self.slides.len() as i16 - 1;
+                    i = bema.slides.len() as i16 - 1;
                 }
             } else {
                 i = 0;
@@ -241,8 +212,8 @@ impl Bema {
                 MoveTo(0, 0),
             )?;
             self.clear_screen()?;
-            println!("{}/{}", i + 1, self.slides.len());
-            self.slides.get(i as usize).unwrap().render()?;
+            println!("{}/{}", i + 1, bema.slides.len());
+            self.render_slide(bema.slides.get(i as usize).unwrap())?;
         }
 
         execute!(
@@ -256,9 +227,36 @@ impl Bema {
     }
 }
 
+pub fn slides(f: fn(Bema) -> Bema) -> Bema {
+    f(Bema { 
+        slides: vec![],
+    })
+}
+
+impl Slide {
+}
+
+
+impl Bema {
+    pub fn slide(mut self, title: &str, f: fn(Slide) -> Slide) -> Bema {
+
+        let s = Slide {
+            title: String::from(title),
+            items: vec![],
+        };
+        self.slides.push(f(s));
+        self
+    }
+
+    pub fn run(&self) -> Result<()> {
+        let runner = TerminalRunner { };
+        runner.run(&self)
+    }
+}
+
 impl Slide {
     pub fn text(mut self, s: &str) -> Slide {
-        self.items.push(Box::new(Text { text: String::from(s) }));
+        self.items.push(SlideItem::Text { text: String::from(s) });
         self
     }
 
@@ -267,12 +265,12 @@ impl Slide {
     }
 
     pub fn code(mut self, extension: &str, source: &str) -> Slide {
-        self.items.push(Box::new(Code { extension: String::from(extension), source: String::from(source) }));
+        self.items.push(SlideItem::Code { extension: String::from(extension), source: String::from(source) });
         self
     }
 
     pub fn image(mut self, s: &'static [u8], extension: &str) -> Slide {
-        self.items.push(Box::new(Image { image: s, extension: String::from(extension) }));
+        self.items.push(SlideItem::Image { image: s, extension: String::from(extension) });
         self
     }
 }
