@@ -1,6 +1,7 @@
 use tempfile::Builder;
 use std::io::{stdout, Write};
 use std::process::Command;
+use std::fs::File;
 use std::env;
 use blockish::render_image;
 
@@ -21,7 +22,7 @@ use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
 
 enum SlideItem {
     Code{ extension: String, source: String },
-    Image{ image: &'static [u8], extension: String },
+    Image{ image: &'static [u8], extension: String, width: Option<usize> },
     Text{ text: String },
 }
 
@@ -127,7 +128,7 @@ impl TerminalRunner {
 
         for item in &slide.items {
             match item {
-                SlideItem::Image { image, extension } => {
+                SlideItem::Image { image, extension, width: _ } => {
                     let mut file = Builder::new()
                         .prefix("image")
                         .suffix(extension)
@@ -227,6 +228,51 @@ impl Runner for TerminalRunner {
     }
 }
 
+struct HovercraftRunner {
+}
+
+impl Runner for HovercraftRunner {
+    fn run(&self, bema: &Bema) -> Result<()> {
+        for (i, slide) in bema.slides.iter().enumerate() {
+            if i > 0 { println!("----"); }
+            println!("");
+            println!("{}", slide.title);
+            for _ in 0..slide.title.len() {
+                print!("=");
+            }
+            println!("");
+            println!("");
+            let mut img_i = 0;
+            for item in &slide.items {
+                match item {
+                    SlideItem::Image { image, extension, width } => {
+                        let file_path = format!("bema_{}{}", img_i, extension);
+                        img_i += 1;
+                        let mut buffer = File::create(&file_path)?;
+                        buffer.write_all(image)?;
+                        println!(".. image:: {}", &file_path);
+                        width.map( |w| println!("   :width: {} px", w));
+                    },
+                    SlideItem::Code { extension, source } => {
+                        println!(".. code:: {}", extension);
+                        println!();
+                        let splits = source.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
+                        for split in splits {
+                            println!("  {}", split);
+                        }
+                    },
+                    SlideItem::Text { text } => {
+                        println!("{}", text);
+                    },
+                }
+            };
+            println!("");
+        }
+        Ok(())
+    }
+}
+
+
 pub fn slides(f: fn(Bema) -> Bema) -> Bema {
     f(Bema { 
         slides: vec![],
@@ -249,8 +295,13 @@ impl Bema {
     }
 
     pub fn run(&self) -> Result<()> {
-        let runner = TerminalRunner { };
-        runner.run(&self)
+        if env::args().len() == 2 {
+            let args : Vec<String> = env::args().collect();
+            if args[1] == "hovercraft" { HovercraftRunner { }.run(&self)? }
+        } else {
+            TerminalRunner { }.run(&self)?;
+        }
+        Ok(())
     }
 }
 
@@ -269,8 +320,8 @@ impl Slide {
         self
     }
 
-    pub fn image(mut self, s: &'static [u8], extension: &str) -> Slide {
-        self.items.push(SlideItem::Image { image: s, extension: String::from(extension) });
+    pub fn image(mut self, image: &'static [u8], extension: &str, width: Option<usize>) -> Slide {
+        self.items.push(SlideItem::Image { image, extension: String::from(extension), width });
         self
     }
 }

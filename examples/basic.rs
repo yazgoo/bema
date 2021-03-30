@@ -47,11 +47,11 @@ fn main() {
                 b -> d
                 dpi=500
             }
-            ' | dot -Tpng"##), ".png")
+            ' | dot -Tpng"##), ".png", Some(500))
         })
 
         .slide("image", |s| {
-            s.image(include_bytes!("capybara.jpg"), ".jpg")
+            s.image(include_bytes!("capybara.jpg"), ".jpg", Some(500))
         })
 
     }).run().unwrap();
