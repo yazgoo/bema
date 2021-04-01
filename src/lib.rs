@@ -66,15 +66,13 @@ fn display_image(image_path: &String) {
     }
 }
 
-fn get_justify(texts: Vec<&String>) -> Result<usize> {
+fn get_justify(size: usize, texts: Vec<&String>) -> Result<usize> {
 
-    let size = terminal::size()?;
-
-    let mut whitespaces : usize = size.0 as usize;
+    let mut whitespaces : usize = size as usize;
 
     for text in texts {
-        let new_whitespaces = if text.len() < size.0 as usize {
-            let x = (size.0 as usize - text.len()) / 2;
+        let new_whitespaces = if text.len() < size as usize {
+            let x = (size as usize - text.len()) / 2;
                 x
         } else {
             0
@@ -92,8 +90,8 @@ fn get_justify(texts: Vec<&String>) -> Result<usize> {
 
 }
 
-fn justify_center(text: Vec<&String>) -> Result<()> {
-    let whitespaces = get_justify(text)?;
+fn justify_center(size: usize, text: Vec<&String>) -> Result<()> {
+    let whitespaces = get_justify(size, text)?;
     stdout()
         .execute(MoveRight(whitespaces as u16))?;
     Ok(())
@@ -124,7 +122,7 @@ impl TerminalRunner {
 
     fn render_slide(&self, slide: &Slide) -> Result<()> {
 
-        justify_center(vec![&slide.title])?;
+        justify_center(terminal::size()?.0 as usize, vec![&slide.title])?;
 
         stdout()
         .execute(SetAttribute(Attribute::Bold))?
@@ -153,7 +151,7 @@ impl TerminalRunner {
                     let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
                     let splits = source.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
                     let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
-                    let whitespaces = get_justify(v2)? as usize;
+                    let whitespaces = get_justify(terminal::size()?.0 as usize, v2)? as usize;
                     for line in LinesWithEndings::from(source) {
                         let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
                         let escaped = as_24_bit_terminal_escaped(&ranges[..], true);
@@ -169,7 +167,7 @@ impl TerminalRunner {
                 SlideItem::Text { text } => {
                     let splits = text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
                     let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
-                    let whitespaces = get_justify(v2)?;
+                    let whitespaces = get_justify(terminal::size()?.0 as usize, v2)?;
                     for split in splits {
                         stdout().execute(MoveRight(whitespaces as u16))?;
                         println!("{}", split);
@@ -285,7 +283,9 @@ async  fn main_gui_runner(bema: Bema) {
                                             ..Default::default()
                                                             });
         y += 80.0;
-        draw_text_ex(&slide.title, 20.0, y, TextParams { font_size: 80, font,
+
+        let x = 30 * get_justify((screen_width() / 30.0) as usize, vec![&slide.title]).unwrap_or(0);
+        draw_text_ex(&slide.title, x as f32, y, TextParams { font_size: 80, font,
                                             ..Default::default()
                                                             });
         y += 180.0;
@@ -307,12 +307,21 @@ async  fn main_gui_runner(bema: Bema) {
                                 textures.insert((i, pos), texture);
                             }
                         };
-                        draw_texture(*textures.get(&(i, pos)).unwrap(), 20.0, y, WHITE);
+                        let texture = *textures.get(&(i, pos)).unwrap();
+                        let w = screen_width();
+                        let x = if w < texture.width() {
+                            0.0
+                        } else {
+                            (w - texture.width()) / 2.0
+                        };
+                        draw_texture(texture, x, y, WHITE);
                     },
                     SlideItem::Code { extension: _, source } => {
                         let splits = source.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
+                        let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
+                        let x = 40 * get_justify((screen_width() / 30.0) as usize, v2).unwrap();
                         for split in splits {
-                            draw_text_ex(&split, 20.0, y, TextParams { font_size: 40, font,
+                            draw_text_ex(&split, x as f32, y, TextParams { font_size: 40, font,
                                 ..Default::default()
                             });
                             y += 35.0;
@@ -320,8 +329,10 @@ async  fn main_gui_runner(bema: Bema) {
                     },
                     SlideItem::Text { text } => {
                         let splits = text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
+                        let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
+                        let x = 40 * get_justify((screen_width() / 30.0) as usize, v2).unwrap();
                         for split in splits {
-                            draw_text_ex(&split, 20.0, y, TextParams { font_size: 40, font,
+                            draw_text_ex(&split, x as f32, y, TextParams { font_size: 40, font,
                                 ..Default::default()
                             });
                             y += 35.0;
