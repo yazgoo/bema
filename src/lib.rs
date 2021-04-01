@@ -249,35 +249,6 @@ async  fn main_gui_runner(bema: Bema) {
         
         let mut changed = false;
 
-
-        if antibounce.elapsed().unwrap_or(Duration::from_millis(0)).as_millis() >= 200 {
-            if is_key_down(miniquad::KeyCode::Right) {
-                i += 1;
-                changed = true;
-            }
-            if is_key_down(miniquad::KeyCode::Left) {
-                i -= 1;
-                changed = true;
-            }
-            if is_key_down(miniquad::KeyCode::Down) {
-                i += 1;
-                changed = true;
-            }
-            if is_key_down(miniquad::KeyCode::Up) {
-                i -= 1;
-                changed = true;
-            }
-            if i >= bema.slides.len() as i32 {
-                i = 0;
-            }
-            else if i < 0 {
-                i = bema.slides.len() as i32 - 1;
-            }
-            if changed {
-                slide = bema.slides.get(i as usize).unwrap();
-            }
-            antibounce = SystemTime::now();
-        }
         let mut y = 20.0;
         draw_text_ex(format!("{}/{}", i + 1, bema.slides.len()).as_str(), 20.0, y, TextParams { font_size: 20, font,
                                             ..Default::default()
@@ -353,6 +324,34 @@ async  fn main_gui_runner(bema: Bema) {
                     },
                 }
             };
+        if antibounce.elapsed().unwrap_or(Duration::from_millis(0)).as_millis() >= 200 {
+            if is_key_down(miniquad::KeyCode::Right) || is_key_down(miniquad::KeyCode::Down) {
+                i += 1;
+                changed = true;
+            }
+            if is_key_down(miniquad::KeyCode::Left) || is_key_down(miniquad::KeyCode::Up) {
+                i -= 1;
+                changed = true;
+            }
+            if is_key_down(miniquad::KeyCode::Q) {
+                return;
+            }
+            if is_key_down(miniquad::KeyCode::S) {
+                let png_path = format!("bema_slide_{}.png", i);
+                println!("export png: {}", png_path);
+                macroquad::texture::get_screen_data().export_png(&png_path);
+            }
+            if i >= bema.slides.len() as i32 {
+                i = 0;
+            }
+            else if i < 0 {
+                i = bema.slides.len() as i32 - 1;
+            }
+            if changed {
+                slide = bema.slides.get(i as usize).unwrap();
+            }
+            antibounce = SystemTime::now();
+        }
         next_frame().await;
     }
 }

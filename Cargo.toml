@@ -3,7 +3,7 @@ opt-level = 3
 
 [package]
 name = "bema"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["yazgoo <yazgoo@gmail.com>"]
 edition = "2018"
 license = "MIT"
