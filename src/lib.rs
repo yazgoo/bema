@@ -240,7 +240,7 @@ struct GuiRunner {
 }
 
 async  fn main_gui_runner(bema: Bema) {
-    let font = load_ttf_font("examples/3270 Narrow Nerd Font Complete.ttf").await;
+    let font = load_ttf_font_from_bytes(include_bytes!("3270 Narrow Nerd Font Complete.ttf"));
     let mut i : i32 = 0;
     let mut slide = bema.slides.get(i as usize).unwrap();
     let mut antibounce = SystemTime::now(); 
