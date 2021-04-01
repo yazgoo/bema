@@ -1,6 +1,6 @@
 # 🎤 bema 
 
-Write your next slideshow in rust 🦀, get a self-contained binary 📦.
+Write your next slideshow in rust 🦀, as a self-contained binary 📦.
 
 ## 🖊  DSL
 
