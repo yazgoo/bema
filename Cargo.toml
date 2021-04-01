@@ -1,3 +1,6 @@
+[profile.dev.package.'*']
+opt-level = 3
+
 [package]
 name = "bema"
 version = "0.0.3"
@@ -17,6 +20,9 @@ syntect = "4.4"
 tempfile = "3.2"
 compile-time-run = "0.2"
 blockish = "0.0.9"
-
+macroquad = "0.3.0-alpha.17"
+futures = { version = "0.3.*" }
+tokio = {version = "0.2.*", features = ["full"] }
+image = "0.23"
 [dev-dependencies]
 indoc = "1.0"

@@ -1,9 +1,12 @@
 use tempfile::Builder;
+use std::collections::HashMap;
 use std::io::{stdout, Write};
+use std::time::{SystemTime, Duration};
 use std::process::Command;
 use std::fs::File;
 use std::env;
 use blockish::render_image;
+use image::io::Reader as ImageReader;
 
 use crossterm::{
     execute,
@@ -20,17 +23,22 @@ use syntect::parsing::SyntaxSet;
 use syntect::highlighting::{ThemeSet, Style};
 use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
 
+use macroquad::prelude::*;
+
+#[derive(Clone)]
 enum SlideItem {
     Code{ extension: String, source: String },
     Image{ image: &'static [u8], extension: String, width: Option<usize> },
     Text{ text: String },
 }
 
+#[derive(Clone)]
 pub struct Slide {
     title: String,
     items: Vec<SlideItem>,
 }
 
+#[derive(Clone)]
 pub struct Bema {
     slides: Vec<Slide>
 }
@@ -228,6 +236,112 @@ impl Runner for TerminalRunner {
     }
 }
 
+struct GuiRunner {
+}
+
+async  fn main_gui_runner(bema: Bema) {
+    let font = load_ttf_font("examples/3270 Narrow Nerd Font Complete.ttf").await;
+    let mut i : i32 = 0;
+    let mut slide = bema.slides.get(i as usize).unwrap();
+    let mut antibounce = SystemTime::now(); 
+    let mut textures = HashMap::new();
+
+    loop {
+        clear_background(BLACK);
+        
+        let mut changed = false;
+
+
+        if antibounce.elapsed().unwrap_or(Duration::from_millis(0)).as_millis() >= 200 {
+            if is_key_down(miniquad::KeyCode::Right) {
+                i += 1;
+                changed = true;
+            }
+            if is_key_down(miniquad::KeyCode::Left) {
+                i -= 1;
+                changed = true;
+            }
+            if is_key_down(miniquad::KeyCode::Down) {
+                i += 1;
+                changed = true;
+            }
+            if is_key_down(miniquad::KeyCode::Up) {
+                i -= 1;
+                changed = true;
+            }
+            if i >= bema.slides.len() as i32 {
+                i = 0;
+            }
+            else if i < 0 {
+                i = bema.slides.len() as i32 - 1;
+            }
+            if changed {
+                slide = bema.slides.get(i as usize).unwrap();
+            }
+            antibounce = SystemTime::now();
+        }
+        let mut y = 20.0;
+        draw_text_ex(format!("{}/{}", i + 1, bema.slides.len()).as_str(), 20.0, y, TextParams { font_size: 20, font,
+                                            ..Default::default()
+                                                            });
+        y += 80.0;
+        draw_text_ex(&slide.title, 20.0, y, TextParams { font_size: 80, font,
+                                            ..Default::default()
+                                                            });
+        y += 180.0;
+            for (pos, item) in slide.items.iter().enumerate() {
+                match item {
+                    SlideItem::Image { image: bytes, extension, width: _ } => {
+                        match textures.get(&(i, pos)) {
+                            Some(_) => {},
+                            None => {
+                                let quad_context = unsafe { get_internal_gl() }.quad_context;
+                                let texture = if extension == ".jpg" {
+                                    let img = ImageReader::with_format(std::io::Cursor::new(bytes), image::ImageFormat::Jpeg).decode().unwrap();
+                                    let mut bytes: Vec<u8> = Vec::new();
+                                    img.write_to(&mut bytes, image::ImageOutputFormat::Png).unwrap();
+                                    Texture2D::from_file_with_format(quad_context, &bytes[..], None)
+                                } else {
+                                    Texture2D::from_file_with_format(quad_context, &bytes[..], None)
+                                };
+                                textures.insert((i, pos), texture);
+                            }
+                        };
+                        draw_texture(*textures.get(&(i, pos)).unwrap(), 20.0, y, WHITE);
+                    },
+                    SlideItem::Code { extension: _, source } => {
+                        let splits = source.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
+                        for split in splits {
+                            draw_text_ex(&split, 20.0, y, TextParams { font_size: 40, font,
+                                ..Default::default()
+                            });
+                            y += 35.0;
+                        }
+                    },
+                    SlideItem::Text { text } => {
+                        let splits = text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
+                        for split in splits {
+                            draw_text_ex(&split, 20.0, y, TextParams { font_size: 40, font,
+                                ..Default::default()
+                            });
+                            y += 35.0;
+                        }
+                    },
+                }
+            };
+        next_frame().await;
+    }
+}
+
+impl Runner for GuiRunner {
+    fn run(&self, bema: &Bema) -> Result<()> {
+
+        macroquad::Window::new("Bema", main_gui_runner(bema.clone()));
+        Ok(())
+    }
+}
+
+
 struct HovercraftRunner {
 }
 
@@ -272,7 +386,6 @@ impl Runner for HovercraftRunner {
     }
 }
 
-
 pub fn slides(f: fn(Bema) -> Bema) -> Bema {
     f(Bema { 
         slides: vec![],
@@ -297,7 +410,11 @@ impl Bema {
     pub fn run(&self) -> Result<()> {
         if env::args().len() == 2 {
             let args : Vec<String> = env::args().collect();
-            if args[1] == "hovercraft" { HovercraftRunner { }.run(&self)? }
+            match args[1].as_str() {
+                "hovercraft" => HovercraftRunner { }.run(&self)?,
+                "gui" => GuiRunner { }.run(&self)?,
+                _ => {}
+            }
         } else {
             TerminalRunner { }.run(&self)?;
         }
