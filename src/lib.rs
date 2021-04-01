@@ -316,16 +316,29 @@ async  fn main_gui_runner(bema: Bema) {
                         };
                         draw_texture(texture, x, y, WHITE);
                     },
-                    SlideItem::Code { extension: _, source } => {
+                    SlideItem::Code { extension, source } => {
+                        let ps = SyntaxSet::load_defaults_newlines();
+                        let ts = ThemeSet::load_defaults();
+
+                        let syntax = ps.find_syntax_by_extension(extension).unwrap();
+                        let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
                         let splits = source.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
                         let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
                         let x = 40 * get_justify((screen_width() / 30.0) as usize, v2).unwrap();
-                        for split in splits {
-                            draw_text_ex(&split, x as f32, y, TextParams { font_size: 40, font,
-                                ..Default::default()
-                            });
+                        for line in LinesWithEndings::from(source) {
+                            let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
+                            let mut dx = 0;
+                            for range in ranges {
+                                let c = range.0.foreground;
+                                draw_text_ex(range.1, (x + (dx * 20)) as f32, y, TextParams { font_size: 40, font,
+                                color: macroquad::color::Color::new(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0, c.a as f32 / 255.0),
+                                    ..Default::default()
+                                });
+                                dx += range.1.len();
+                            }
                             y += 35.0;
                         }
+
                     },
                     SlideItem::Text { text } => {
                         let splits = text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();

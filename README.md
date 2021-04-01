@@ -21,7 +21,6 @@ otherwise the program will fallback on [blockish](https://github.com/yazgoo/bloc
 ![demo](https://raw.githubusercontent.com/yazgoo/bema/gh-pages/screenshot_gui.gif)
 
 Invoke the program with `gui` as argument.
-No syntax highlighting is available in this mode.
 
 ### 🕸  in browser with hovercraft
 
