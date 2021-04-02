@@ -220,12 +220,47 @@ impl Runner for TerminalRunner {
 pub struct GuiRunner {
 }
 
+
+fn get_justify_px(font_size: u16, texts: Vec<&String>) -> f32 {
+    let font_width = font_size / 2;
+    (font_width as usize * get_justify((screen_width() / font_width as f32) as usize, texts).unwrap_or(0)) as f32
+}
+
+fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8], extension: &String, pos: usize, i: i32, y: f32) {
+    match textures.get(&(i, pos)) {
+        Some(_) => {},
+        None => {
+            let quad_context = unsafe { get_internal_gl() }.quad_context;
+            let texture = if extension == ".jpg" {
+                let img = ImageReader::with_format(std::io::Cursor::new(bytes), image::ImageFormat::Jpeg).decode().unwrap();
+                let mut bytes: Vec<u8> = Vec::new();
+                img.write_to(&mut bytes, image::ImageOutputFormat::Png).unwrap();
+                Texture2D::from_file_with_format(quad_context, &bytes[..], None)
+            } else {
+                Texture2D::from_file_with_format(quad_context, &bytes[..], None)
+            };
+            textures.insert((i, pos), texture);
+        }
+    };
+    let texture = *textures.get(&(i, pos)).unwrap();
+    let w = screen_width();
+    let x = if w < texture.width() {
+        0.0
+    } else {
+        (w - texture.width()) / 2.0
+    };
+    draw_texture(texture, x, y, WHITE);
+}
+
 async  fn main_gui_runner(bema: Bema) {
     let font = load_ttf_font_from_bytes(include_bytes!("3270 Narrow Nerd Font Complete.ttf"));
     let mut i : i32 = 0;
     let mut slide = bema.slides.get(i as usize).unwrap();
     let mut antibounce = SystemTime::now(); 
     let mut textures = HashMap::new();
+
+    let title_size : u16 = 80;
+    let text_size : u16 = 60;
 
     loop {
         clear_background(BLACK);
@@ -236,39 +271,16 @@ async  fn main_gui_runner(bema: Bema) {
         draw_text_ex(format!("{}/{}", i + 1, bema.slides.len()).as_str(), 20.0, y, TextParams { font_size: 20, font,
                                             ..Default::default()
                                                             });
-        y += 80.0;
+        y += title_size as f32;
 
-        let x = 30 * get_justify((screen_width() / 30.0) as usize, vec![&slide.title]).unwrap_or(0);
-        draw_text_ex(&slide.title, x as f32, y, TextParams { font_size: 80, font,
+        draw_text_ex(&slide.title, get_justify_px(title_size, vec![&slide.title]), y, TextParams { font_size: title_size, font,
                                             ..Default::default()
                                                             });
-        y += 180.0;
+        y += 2.0 * title_size as f32;
             for (pos, item) in slide.items.iter().enumerate() {
                 match item {
                     SlideItem::Image { image: bytes, extension, width: _ } => {
-                        match textures.get(&(i, pos)) {
-                            Some(_) => {},
-                            None => {
-                                let quad_context = unsafe { get_internal_gl() }.quad_context;
-                                let texture = if extension == ".jpg" {
-                                    let img = ImageReader::with_format(std::io::Cursor::new(bytes), image::ImageFormat::Jpeg).decode().unwrap();
-                                    let mut bytes: Vec<u8> = Vec::new();
-                                    img.write_to(&mut bytes, image::ImageOutputFormat::Png).unwrap();
-                                    Texture2D::from_file_with_format(quad_context, &bytes[..], None)
-                                } else {
-                                    Texture2D::from_file_with_format(quad_context, &bytes[..], None)
-                                };
-                                textures.insert((i, pos), texture);
-                            }
-                        };
-                        let texture = *textures.get(&(i, pos)).unwrap();
-                        let w = screen_width();
-                        let x = if w < texture.width() {
-                            0.0
-                        } else {
-                            (w - texture.width()) / 2.0
-                        };
-                        draw_texture(texture, x, y, WHITE);
+                        main_draw_texture(&mut textures, bytes, &extension, pos, i, y);
                     },
                     SlideItem::Code { extension, source } => {
                         let ps = SyntaxSet::load_defaults_newlines();
@@ -278,31 +290,31 @@ async  fn main_gui_runner(bema: Bema) {
                         let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
                         let splits = source.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
                         let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
-                        let x = 40 * get_justify((screen_width() / 30.0) as usize, v2).unwrap();
+                        let x = get_justify_px(text_size, v2);
                         for line in LinesWithEndings::from(source) {
                             let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
-                            let mut dx = 0;
+                            let mut dx = 0.0;
                             for range in ranges {
                                 let c = range.0.foreground;
-                                draw_text_ex(range.1, (x + (dx * 20)) as f32, y, TextParams { font_size: 40, font,
+                                draw_text_ex(range.1, (x + (dx * (text_size as f32 / 2.0))) as f32, y, TextParams { font_size: text_size, font,
                                 color: macroquad::color::Color::new(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0, c.a as f32 / 255.0),
                                     ..Default::default()
                                 });
-                                dx += range.1.len();
+                                dx += range.1.len() as f32;
                             }
-                            y += 35.0;
+                            y += text_size as f32;
                         }
 
                     },
                     SlideItem::Text { text } => {
                         let splits = text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
                         let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
-                        let x = 40 * get_justify((screen_width() / 30.0) as usize, v2).unwrap();
+                        let x = get_justify_px(text_size, v2);
                         for split in splits {
-                            draw_text_ex(&split, x as f32, y, TextParams { font_size: 40, font,
+                            draw_text_ex(&split, x, y, TextParams { font_size: text_size, font,
                                 ..Default::default()
                             });
-                            y += 35.0;
+                            y += text_size as f32;
                         }
                     },
                 }
