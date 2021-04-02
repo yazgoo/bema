@@ -308,11 +308,11 @@ async  fn main_gui_runner(bema: Bema) {
                 }
             };
         if antibounce.elapsed().unwrap_or(Duration::from_millis(0)).as_millis() >= 200 {
-            if is_key_down(miniquad::KeyCode::Right) || is_key_down(miniquad::KeyCode::Down) {
+            if is_key_down(miniquad::KeyCode::Right) || is_key_down(miniquad::KeyCode::Down) || is_key_down(miniquad::KeyCode::L) || is_key_down(miniquad::KeyCode::J) {
                 i += 1;
                 changed = true;
             }
-            if is_key_down(miniquad::KeyCode::Left) || is_key_down(miniquad::KeyCode::Up) {
+            if is_key_down(miniquad::KeyCode::Left) || is_key_down(miniquad::KeyCode::Up) || is_key_down(miniquad::KeyCode::H) || is_key_down(miniquad::KeyCode::K) {
                 i -= 1;
                 changed = true;
             }
