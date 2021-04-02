@@ -252,10 +252,46 @@ fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8
     draw_texture(texture, x, y, WHITE);
 }
 
+fn main_capture_input(bema: &Bema, i: &mut i32, antibounce: &SystemTime) -> (Option<Slide>, Option<SystemTime>) {
+    let mut changed = false;
+    let mut o_slide = None;
+    let mut o_antibounce = None;
+
+    if antibounce.elapsed().unwrap_or(Duration::from_millis(0)).as_millis() >= 200 {
+        if is_key_down(miniquad::KeyCode::Right) || is_key_down(miniquad::KeyCode::Down) || is_key_down(miniquad::KeyCode::L) || is_key_down(miniquad::KeyCode::J) {
+            *i += 1;
+            changed = true;
+        }
+        if is_key_down(miniquad::KeyCode::Left) || is_key_down(miniquad::KeyCode::Up) || is_key_down(miniquad::KeyCode::H) || is_key_down(miniquad::KeyCode::K) {
+            *i -= 1;
+            changed = true;
+        }
+        if is_key_down(miniquad::KeyCode::Q) {
+            std::process::exit(0);
+        }
+        if is_key_down(miniquad::KeyCode::S) {
+            let png_path = format!("bema_slide_{}.png", *i);
+            println!("export png: {}", png_path);
+            macroquad::texture::get_screen_data().export_png(&png_path);
+        }
+        if *i >= bema.slides.len() as i32 {
+            *i = 0;
+        }
+        else if *i < 0 {
+            *i = bema.slides.len() as i32 - 1;
+        }
+        if changed {
+            o_slide = Some(bema.slides.get(*i as usize).unwrap().clone());
+        }
+        o_antibounce = Some(SystemTime::now());
+    }
+    return (o_slide, o_antibounce);
+}
+
 async  fn main_gui_runner(bema: Bema) {
     let font = load_ttf_font_from_bytes(include_bytes!("3270 Narrow Nerd Font Complete.ttf"));
     let mut i : i32 = 0;
-    let mut slide = bema.slides.get(i as usize).unwrap();
+    let mut slide : Slide = bema.slides.get(i as usize).unwrap().clone();
     let mut antibounce = SystemTime::now(); 
     let mut textures = HashMap::new();
 
@@ -265,8 +301,6 @@ async  fn main_gui_runner(bema: Bema) {
     loop {
         clear_background(BLACK);
         
-        let mut changed = false;
-
         let mut y = 20.0;
         draw_text_ex(format!("{}/{}", i + 1, bema.slides.len()).as_str(), 20.0, y, TextParams { font_size: 20, font,
                                             ..Default::default()
@@ -319,33 +353,14 @@ async  fn main_gui_runner(bema: Bema) {
                     },
                 }
             };
-        if antibounce.elapsed().unwrap_or(Duration::from_millis(0)).as_millis() >= 200 {
-            if is_key_down(miniquad::KeyCode::Right) || is_key_down(miniquad::KeyCode::Down) || is_key_down(miniquad::KeyCode::L) || is_key_down(miniquad::KeyCode::J) {
-                i += 1;
-                changed = true;
-            }
-            if is_key_down(miniquad::KeyCode::Left) || is_key_down(miniquad::KeyCode::Up) || is_key_down(miniquad::KeyCode::H) || is_key_down(miniquad::KeyCode::K) {
-                i -= 1;
-                changed = true;
-            }
-            if is_key_down(miniquad::KeyCode::Q) {
-                return;
-            }
-            if is_key_down(miniquad::KeyCode::S) {
-                let png_path = format!("bema_slide_{}.png", i);
-                println!("export png: {}", png_path);
-                macroquad::texture::get_screen_data().export_png(&png_path);
-            }
-            if i >= bema.slides.len() as i32 {
-                i = 0;
-            }
-            else if i < 0 {
-                i = bema.slides.len() as i32 - 1;
-            }
-            if changed {
-                slide = bema.slides.get(i as usize).unwrap();
-            }
-            antibounce = SystemTime::now();
+        match main_capture_input(&bema, &mut i, &antibounce) {
+            (Some(o_slide), Some(o_antibounce)) => {
+                slide = o_slide;
+                antibounce = o_antibounce;
+            },
+            (Some(o_slide), None)  => { slide = o_slide; },
+            (None, Some(o_antibounce))  => { antibounce = o_antibounce; },
+            _ => {},
         }
         next_frame().await;
     }
