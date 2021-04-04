@@ -252,7 +252,7 @@ fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8
     draw_texture(texture, x, y, WHITE);
 }
 
-fn main_capture_input(bema: &Bema, i: &mut i32, antibounce: &SystemTime) -> (Option<Slide>, Option<SystemTime>) {
+fn main_capture_input(bema: &Bema, i: &mut i32, antibounce: &SystemTime, scale: &mut f32) -> (Option<Slide>, Option<SystemTime>) {
     let mut changed = false;
     let mut o_slide = None;
     let mut o_antibounce = None;
@@ -268,6 +268,12 @@ fn main_capture_input(bema: &Bema, i: &mut i32, antibounce: &SystemTime) -> (Opt
         }
         if is_key_down(miniquad::KeyCode::Q) {
             std::process::exit(0);
+        }
+        if is_key_down(miniquad::KeyCode::M) {
+            *scale *= 1.1;
+        }
+        if is_key_down(miniquad::KeyCode::R) {
+            *scale /= 1.1;
         }
         if is_key_down(miniquad::KeyCode::S) {
             let png_path = format!("bema_slide_{}.png", *i);
@@ -288,6 +294,10 @@ fn main_capture_input(bema: &Bema, i: &mut i32, antibounce: &SystemTime) -> (Opt
     return (o_slide, o_antibounce);
 }
 
+fn scalef(font_size: u16, scale: f32) -> u16 {
+    (font_size as f32 * scale as f32) as u16
+}
+
 async  fn main_gui_runner(bema: Bema) {
     let font = load_ttf_font_from_bytes(include_bytes!("3270 Narrow Nerd Font Complete.ttf"));
     let mut i : i32 = 0;
@@ -295,14 +305,16 @@ async  fn main_gui_runner(bema: Bema) {
     let mut antibounce = SystemTime::now(); 
     let mut textures = HashMap::new();
 
-    let title_size : u16 = 80;
-    let text_size : u16 = 60;
+    let mut scale : f32 = 1.0;
 
     loop {
+        let title_size : u16 = scalef(80, scale);
+        let text_size : u16 = scalef(60, scale);
+        let index_size : u16 = scalef(20, scale);
         clear_background(BLACK);
         
-        let mut y = 20.0;
-        draw_text_ex(format!("{}/{}", i + 1, bema.slides.len()).as_str(), 20.0, y, TextParams { font_size: 20, font,
+        let mut y = index_size as f32;
+        draw_text_ex(format!("{}/{}", i + 1, bema.slides.len()).as_str(), 20.0, y, TextParams { font_size: index_size, font,
                                             ..Default::default()
                                                             });
         y += title_size as f32;
@@ -353,7 +365,7 @@ async  fn main_gui_runner(bema: Bema) {
                     },
                 }
             };
-        match main_capture_input(&bema, &mut i, &antibounce) {
+        match main_capture_input(&bema, &mut i, &antibounce, &mut scale) {
             (Some(o_slide), Some(o_antibounce)) => {
                 slide = o_slide;
                 antibounce = o_antibounce;

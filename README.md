@@ -15,13 +15,18 @@ see [examples/](examples).
 Invoke the program with no argument.
 For now, full definition images are only supported within [kitty](https://sw.kovidgoyal.net/kitty/),
 otherwise the program will fallback on [blockish](https://github.com/yazgoo/blockish/).
+Use arrow keys or `hjkl` to navigate,
+`q` to quit.
 
 ### 🖌  GUI
 
 ![demo](https://raw.githubusercontent.com/yazgoo/bema/gh-pages/screenshot_gui.gif)
 
 Invoke the program with `gui` as argument.
-Use arrow keys to navigate, `s` for a 📷 screenshot, `q` to quit.
+Use arrow keys or `hjkl` to navigate,
+`s` for a 📷 screenshot,
+`m` to increase font size, `r` to decrease it.
+`q` to quit.
 
 ### 🕸  in browser with hovercraft
 
