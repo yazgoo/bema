@@ -1,5 +1,6 @@
 use crate::runner::{Runner, get_justify};
-use crate::bema::{Bema, SlideItem};
+use crate::bema::{Bema, SlideItem, Slide};
+use indoc::indoc;
 
 use image::io::Reader as ImageReader;
 use std::collections::HashMap;
@@ -53,7 +54,7 @@ fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8
     *y += texture.width();
 }
 
-fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, antibounce: &mut SystemTime, transition: &mut SystemTime, transition_direction: &mut f32) {
+fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, antibounce: &mut SystemTime, transition: &mut SystemTime, transition_direction: &mut f32, help: &mut bool) {
     let mut changed = false;
 
     if antibounce.elapsed().unwrap_or(Duration::from_millis(0)).as_millis() >= get_transition_duration() {
@@ -76,6 +77,9 @@ fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, antibounce: &mu
         if is_key_down(miniquad::KeyCode::R) {
             *scale /= 1.1;
         }
+        if is_key_down(miniquad::KeyCode::Escape) {
+            *help = !*help;
+        }
         if is_key_down(miniquad::KeyCode::S) {
             let png_path = format!("bema_slide_{}.png", *i);
             println!("export png: {}", png_path);
@@ -90,6 +94,7 @@ fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, antibounce: &mu
         *antibounce = SystemTime::now();
         if changed {
             *transition = SystemTime::now();
+            *help = false;
         }
     }
 }
@@ -177,9 +182,34 @@ async  fn main_gui_runner(bema: Bema) {
     let mut transition_direction = 0.0;
     let mut scale : f32 = 1.0;
 
+    let help_slides =  Bema { 
+        slides: vec![Slide { 
+            title: "bema help".to_string(), 
+            items: vec![
+                SlideItem::Text { text: "keys:".to_string() },
+                SlideItem::Text { text: "".to_string() },
+                SlideItem::Text { text: indoc! {"
+                next slide      right, down, L, J, N
+                previous slide  left, up, H, K, P
+                exit            Q
+                scale up        M
+                scale down      R
+                screenshot      S
+                enter help      Escape
+                leave help      Escape"
+                }.to_string() },
+            ]
+        }]
+    };
+    let mut help = false;
+
     loop {
         clear_background(BLACK);
 
+        if help {
+            draw_slide(font, &mut textures, &help_slides, 0, 0.0, scale);
+        }
+        else {
         let dt = transition.elapsed().unwrap_or(Duration::from_millis(0)).as_millis();
         let dt = if dt > get_transition_duration() || transition_direction == 0.0 { transition_direction = 0.0; get_transition_duration() } else { dt };
         let dx = transition_direction * screen_width() * dt as f32 / get_transition_duration() as f32;
@@ -187,7 +217,8 @@ async  fn main_gui_runner(bema: Bema) {
 
         draw_slide(font, &mut textures, &bema, i + transition_direction as i32, dx, scale);
         if transition_direction != 0.0 { draw_slide(font, &mut textures, &bema, i + 1 + transition_direction as i32, dx + screen_width(), scale); }
-        main_capture_input(&bema, &mut i, &mut scale, &mut antibounce, &mut transition, &mut transition_direction); 
+        }
+        main_capture_input(&bema, &mut i, &mut scale, &mut antibounce, &mut transition, &mut transition_direction, &mut help); 
         next_frame().await;
     }
 }

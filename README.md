@@ -23,10 +23,7 @@ Use arrow keys or `hjkl` to navigate,
 ![demo](https://raw.githubusercontent.com/yazgoo/bema/gh-pages/screenshot_gui.gif)
 
 Invoke the program with `gui` as argument.
-Use arrow keys or `hjkl` to navigate,
-`s` for a 📷 screenshot,
-`m` to increase font size, `r` to decrease it.
-`q` to quit.
+Press escape for help on usage keys.
 
 ### 🕸  in browser with hovercraft
 
