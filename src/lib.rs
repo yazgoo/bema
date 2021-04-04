@@ -1,5 +1,13 @@
 mod runner;
-use crate::runner::{GuiRunner, TerminalRunner, HovercraftRunner, Runner};
+use crate::runner::{Runner};
+mod hovercraft_runner;
+use crate::hovercraft_runner::HovercraftRunner;
+mod terminal_runner;
+use crate::terminal_runner::TerminalRunner;
+mod gui_runner;
+use crate::gui_runner::GuiRunner;
+
+
 mod bema;
 use crate::bema::{Bema, SlideItem, Slide};
 
