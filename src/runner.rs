@@ -298,6 +298,43 @@ fn scalef(font_size: u16, scale: f32) -> u16 {
     (font_size as f32 * scale as f32) as u16
 }
 
+fn write_text(text_size: u16, font: Font, y: &mut f32, text: &String) {
+    let splits = text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
+    let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
+    let x = get_justify_px(text_size, v2);
+    for split in splits {
+        draw_text_ex(&split, x, *y, TextParams { font_size: text_size, font,
+            ..Default::default()
+        });
+        *y += text_size as f32;
+    }
+}
+
+fn write_code(text_size: u16, font: Font, y: &mut f32, extension: &String, source: &String) {
+    let ps = SyntaxSet::load_defaults_newlines();
+    let ts = ThemeSet::load_defaults();
+
+    let syntax = ps.find_syntax_by_extension(extension).unwrap();
+    let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
+    let splits = source.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
+    let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
+    let x = get_justify_px(text_size, v2);
+    for line in LinesWithEndings::from(source) {
+        let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
+        let mut dx = 0.0;
+        for range in ranges {
+            let c = range.0.foreground;
+            draw_text_ex(range.1, (x + (dx * (text_size as f32 / 2.0))) as f32, *y, TextParams { font_size: text_size, font,
+            color: macroquad::color::Color::new(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0, c.a as f32 / 255.0),
+            ..Default::default()
+            });
+            dx += range.1.len() as f32;
+        }
+        *y += text_size as f32;
+    }
+
+}
+
 async  fn main_gui_runner(bema: Bema) {
     let font = load_ttf_font_from_bytes(include_bytes!("3270 Narrow Nerd Font Complete.ttf"));
     let mut i : i32 = 0;
@@ -329,39 +366,10 @@ async  fn main_gui_runner(bema: Bema) {
                         main_draw_texture(&mut textures, bytes, &extension, pos, i, y);
                     },
                     SlideItem::Code { extension, source } => {
-                        let ps = SyntaxSet::load_defaults_newlines();
-                        let ts = ThemeSet::load_defaults();
-
-                        let syntax = ps.find_syntax_by_extension(extension).unwrap();
-                        let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
-                        let splits = source.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
-                        let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
-                        let x = get_justify_px(text_size, v2);
-                        for line in LinesWithEndings::from(source) {
-                            let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
-                            let mut dx = 0.0;
-                            for range in ranges {
-                                let c = range.0.foreground;
-                                draw_text_ex(range.1, (x + (dx * (text_size as f32 / 2.0))) as f32, y, TextParams { font_size: text_size, font,
-                                color: macroquad::color::Color::new(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0, c.a as f32 / 255.0),
-                                    ..Default::default()
-                                });
-                                dx += range.1.len() as f32;
-                            }
-                            y += text_size as f32;
-                        }
-
+                        write_code(text_size, font, &mut y, extension, source);
                     },
                     SlideItem::Text { text } => {
-                        let splits = text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
-                        let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
-                        let x = get_justify_px(text_size, v2);
-                        for split in splits {
-                            draw_text_ex(&split, x, y, TextParams { font_size: text_size, font,
-                                ..Default::default()
-                            });
-                            y += text_size as f32;
-                        }
+                        write_text(text_size, font, &mut y, text);
                     },
                 }
             };
