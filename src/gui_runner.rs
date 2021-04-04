@@ -54,7 +54,7 @@ fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8
     *y += texture.width();
 }
 
-fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, antibounce: &mut SystemTime, transition: &mut SystemTime, transition_direction: &mut f32, help: &mut bool) {
+fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, antibounce: &mut SystemTime, transition: &mut SystemTime, transition_direction: &mut f32, help: &mut bool, decoration: &mut bool) {
     let mut changed = false;
 
     if antibounce.elapsed().unwrap_or(Duration::from_millis(0)).as_millis() >= get_transition_duration() {
@@ -79,6 +79,9 @@ fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, antibounce: &mu
         }
         if is_key_down(miniquad::KeyCode::Escape) {
             *help = !*help;
+        }
+        if is_key_down(miniquad::KeyCode::D) {
+            *decoration = !*decoration;
         }
         if is_key_down(miniquad::KeyCode::S) {
             let png_path = format!("bema_slide_{}.png", *i);
@@ -195,6 +198,7 @@ async  fn main_gui_runner(bema: Bema) {
                 scale up        M
                 scale down      R
                 screenshot      S
+                tgl decoration  D 
                 enter help      Escape
                 leave help      Escape"
                 }.to_string() },
@@ -202,8 +206,26 @@ async  fn main_gui_runner(bema: Bema) {
         }]
     };
     let mut help = false;
+    let mut decoration = false;
+
+    let render_target = render_target(screen_width() as u32, (screen_height() * 0.6) as u32);
+    set_texture_filter(render_target.texture, FilterMode::Nearest);
+    let material =
+        load_material(CRT_VERTEX_SHADER, CRT_FRAGMENT_SHADER, Default::default()).unwrap();
+    let reverse_material =
+        load_material(CRT_VERTEX_SHADER, CRT_FRAGMENT_SHADER_REVERSE, Default::default()).unwrap();
+
 
     loop {
+        if decoration {
+            // draw to texture
+            set_camera(Camera2D {
+                zoom: vec2(0.001055, 0.0025),
+                target: vec2(screen_width() / 2.0, screen_height() / 3.0),
+                render_target: Some(render_target),
+                ..Default::default()
+            });
+        }
         clear_background(BLACK);
 
         if help {
@@ -218,7 +240,38 @@ async  fn main_gui_runner(bema: Bema) {
         draw_slide(font, &mut textures, &bema, i + transition_direction as i32, dx, scale);
         if transition_direction != 0.0 { draw_slide(font, &mut textures, &bema, i + 1 + transition_direction as i32, dx + screen_width(), scale); }
         }
-        main_capture_input(&bema, &mut i, &mut scale, &mut antibounce, &mut transition, &mut transition_direction, &mut help); 
+
+
+        // draw to screen
+        if decoration {
+            set_default_camera();
+
+            clear_background(BLACK);
+            gl_use_material(material);
+            draw_texture_ex(
+                render_target.texture,
+                0.0,
+                0.0,
+                WHITE,
+                DrawTextureParams {
+                    dest_size: Some(vec2(screen_width(), screen_height() * 0.6)),
+                    ..Default::default()
+                },
+            );
+            gl_use_material(reverse_material);
+            draw_texture_ex(
+                render_target.texture,
+                0.0,
+                screen_height() * 0.6,
+                WHITE,
+                DrawTextureParams {
+                    dest_size: Some(vec2(screen_width(), screen_height() * 0.6)),
+                    ..Default::default()
+                },
+            );
+            gl_use_default_material();
+        }
+        main_capture_input(&bema, &mut i, &mut scale, &mut antibounce, &mut transition, &mut transition_direction, &mut help, &mut decoration); 
         next_frame().await;
     }
 }
@@ -231,3 +284,45 @@ impl Runner for GuiRunner {
     }
 }
 
+
+const CRT_FRAGMENT_SHADER: &'static str = r#"#version 100
+precision lowp float;
+varying vec4 color;
+varying vec2 uv;
+uniform sampler2D Texture;
+void main() {
+    
+    vec3 res = texture2D(Texture, uv).rgb * color.rgb;
+    gl_FragColor = vec4(res, 1.0);
+}
+"#;
+
+
+const CRT_FRAGMENT_SHADER_REVERSE: &'static str = r#"#version 100
+precision lowp float;
+varying vec4 color;
+varying vec2 uv;
+uniform sampler2D Texture;
+uniform float u_time;
+void main() {
+    
+    vec2 uv2 = vec2(uv[0], 1.0 - uv[1]); 
+    vec3 res = texture2D(Texture, uv2).rgb * color.rgb;
+    gl_FragColor = vec4(res * (uv2[1] * uv2[1] * uv2[1] * uv2[1]), 1.0);
+}
+"#;
+
+const CRT_VERTEX_SHADER: &'static str = "#version 100
+attribute vec3 position;
+attribute vec2 texcoord;
+attribute vec4 color0;
+varying lowp vec2 uv;
+varying lowp vec4 color;
+uniform mat4 Model;
+uniform mat4 Projection;
+void main() {
+    gl_Position = Projection * Model * vec4(position, 1);
+    color = color0 / 255.0;
+    uv = texcoord;
+}
+";
