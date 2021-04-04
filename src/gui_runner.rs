@@ -1,5 +1,5 @@
 use crate::runner::{Runner, get_justify};
-use crate::bema::{Bema, SlideItem, Slide};
+use crate::bema::{Bema, SlideItem};
 
 use image::io::Reader as ImageReader;
 use std::collections::HashMap;
@@ -183,9 +183,10 @@ async  fn main_gui_runner(bema: Bema) {
         let dt = transition.elapsed().unwrap_or(Duration::from_millis(0)).as_millis();
         let dt = if dt > get_transition_duration() || transition_direction == 0.0 { transition_direction = 0.0; get_transition_duration() } else { dt };
         let dx = transition_direction * screen_width() * dt as f32 / get_transition_duration() as f32;
-        draw_slide(font, &mut textures, &bema, i - 1 + transition_direction as i32, dx - screen_width(), scale);
+        if transition_direction != 0.0 { draw_slide(font, &mut textures, &bema, i - 1 + transition_direction as i32, dx - screen_width(), scale); }
+
         draw_slide(font, &mut textures, &bema, i + transition_direction as i32, dx, scale);
-        draw_slide(font, &mut textures, &bema, i + 1 + transition_direction as i32, dx + screen_width(), scale);
+        if transition_direction != 0.0 { draw_slide(font, &mut textures, &bema, i + 1 + transition_direction as i32, dx + screen_width(), scale); }
         main_capture_input(&bema, &mut i, &mut scale, &mut antibounce, &mut transition, &mut transition_direction); 
         next_frame().await;
     }
