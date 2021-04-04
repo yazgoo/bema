@@ -52,6 +52,7 @@ fn main() {
 
         .slide("image", |s| {
             s.image(include_bytes!("capybara.jpg"), ".jpg", Some(500))
+                .t("an image")
         })
 
     }).run().unwrap();

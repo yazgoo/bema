@@ -21,7 +21,7 @@ fn get_justify_px(font_size: u16, texts: Vec<&String>) -> f32 {
     (font_width as usize * get_justify((screen_width() / font_width as f32) as usize, texts).unwrap_or(0)) as f32
 }
 
-fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8], width: &Option<usize>, extension: &String, pos: usize, i: i32, y: f32) {
+fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8], width: &Option<usize>, extension: &String, pos: usize, i: i32, y: &mut f32) {
     match textures.get(&(i, pos)) {
         Some(_) => {},
         None => {
@@ -45,13 +45,12 @@ fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8
     } else {
         (w - texture.width()) / 2.0
     };
-    draw_texture(texture, x, y, WHITE);
+    draw_texture(texture, x, *y, WHITE);
+    *y += texture.width();
 }
 
-fn main_capture_input(bema: &Bema, i: &mut i32, antibounce: &SystemTime, scale: &mut f32) -> (Option<Slide>, Option<SystemTime>) {
+fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, slide: &mut Slide, antibounce: &mut SystemTime) {
     let mut changed = false;
-    let mut o_slide = None;
-    let mut o_antibounce = None;
 
     if antibounce.elapsed().unwrap_or(Duration::from_millis(0)).as_millis() >= 200 {
         if is_key_down(miniquad::KeyCode::Right) || is_key_down(miniquad::KeyCode::Down) || is_key_down(miniquad::KeyCode::L) || is_key_down(miniquad::KeyCode::J) || is_key_down(miniquad::KeyCode::N) {
@@ -83,11 +82,10 @@ fn main_capture_input(bema: &Bema, i: &mut i32, antibounce: &SystemTime, scale: 
             *i = bema.slides.len() as i32 - 1;
         }
         if changed {
-            o_slide = Some(bema.slides.get(*i as usize).unwrap().clone());
+            *slide = bema.slides.get(*i as usize).unwrap().clone();
         }
-        o_antibounce = Some(SystemTime::now());
+        *antibounce = SystemTime::now();
     }
-    return (o_slide, o_antibounce);
 }
 
 fn scalef(font_size: u16, scale: f32) -> u16 {
@@ -159,7 +157,7 @@ async  fn main_gui_runner(bema: Bema) {
             for (pos, item) in slide.items.iter().enumerate() {
                 match item {
                     SlideItem::Image { image: bytes, extension, width } => {
-                        main_draw_texture(&mut textures, bytes, width, &extension, pos, i, y);
+                        main_draw_texture(&mut textures, bytes, width, &extension, pos, i, &mut y);
                     },
                     SlideItem::Code { extension, source } => {
                         write_code(text_size, font, &mut y, extension, source);
@@ -169,15 +167,7 @@ async  fn main_gui_runner(bema: Bema) {
                     },
                 }
             };
-        match main_capture_input(&bema, &mut i, &antibounce, &mut scale) {
-            (Some(o_slide), Some(o_antibounce)) => {
-                slide = o_slide;
-                antibounce = o_antibounce;
-            },
-            (Some(o_slide), None)  => { slide = o_slide; },
-            (None, Some(o_antibounce))  => { antibounce = o_antibounce; },
-            _ => {},
-        }
+        main_capture_input(&bema, &mut i, &mut scale, &mut slide, &mut antibounce); 
         next_frame().await;
     }
 }
