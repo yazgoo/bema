@@ -21,13 +21,14 @@ fn get_justify_px(font_size: u16, texts: Vec<&String>) -> f32 {
     (font_width as usize * get_justify((screen_width() / font_width as f32) as usize, texts).unwrap_or(0)) as f32
 }
 
-fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8], extension: &String, pos: usize, i: i32, y: f32) {
+fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8], width: &Option<usize>, extension: &String, pos: usize, i: i32, y: f32) {
     match textures.get(&(i, pos)) {
         Some(_) => {},
         None => {
             let quad_context = unsafe { get_internal_gl() }.quad_context;
             let texture = if extension == ".jpg" {
-                let img = ImageReader::with_format(std::io::Cursor::new(bytes), image::ImageFormat::Jpeg).decode().unwrap();
+                let mut img = ImageReader::with_format(std::io::Cursor::new(bytes), image::ImageFormat::Jpeg).decode().unwrap();
+                img = width.map(|w| img.resize(w as u32, (w * 2) as u32, image::imageops::FilterType::Lanczos3)).unwrap_or(img);
                 let mut bytes: Vec<u8> = Vec::new();
                 img.write_to(&mut bytes, image::ImageOutputFormat::Png).unwrap();
                 Texture2D::from_file_with_format(quad_context, &bytes[..], None)
@@ -53,11 +54,11 @@ fn main_capture_input(bema: &Bema, i: &mut i32, antibounce: &SystemTime, scale: 
     let mut o_antibounce = None;
 
     if antibounce.elapsed().unwrap_or(Duration::from_millis(0)).as_millis() >= 200 {
-        if is_key_down(miniquad::KeyCode::Right) || is_key_down(miniquad::KeyCode::Down) || is_key_down(miniquad::KeyCode::L) || is_key_down(miniquad::KeyCode::J) {
+        if is_key_down(miniquad::KeyCode::Right) || is_key_down(miniquad::KeyCode::Down) || is_key_down(miniquad::KeyCode::L) || is_key_down(miniquad::KeyCode::J) || is_key_down(miniquad::KeyCode::N) {
             *i += 1;
             changed = true;
         }
-        if is_key_down(miniquad::KeyCode::Left) || is_key_down(miniquad::KeyCode::Up) || is_key_down(miniquad::KeyCode::H) || is_key_down(miniquad::KeyCode::K) {
+        if is_key_down(miniquad::KeyCode::Left) || is_key_down(miniquad::KeyCode::Up) || is_key_down(miniquad::KeyCode::H) || is_key_down(miniquad::KeyCode::K) || is_key_down(miniquad::KeyCode::P) {
             *i -= 1;
             changed = true;
         }
@@ -157,8 +158,8 @@ async  fn main_gui_runner(bema: Bema) {
         y += 2.0 * title_size as f32;
             for (pos, item) in slide.items.iter().enumerate() {
                 match item {
-                    SlideItem::Image { image: bytes, extension, width: _ } => {
-                        main_draw_texture(&mut textures, bytes, &extension, pos, i, y);
+                    SlideItem::Image { image: bytes, extension, width } => {
+                        main_draw_texture(&mut textures, bytes, width, &extension, pos, i, y);
                     },
                     SlideItem::Code { extension, source } => {
                         write_code(text_size, font, &mut y, extension, source);
