@@ -12,6 +12,10 @@ use syntect::util::LinesWithEndings;
 use crossterm::Result;
 use macroquad::prelude::*;
 
+fn get_transition_duration() -> u128 {
+    200
+}
+
 pub struct GuiRunner {
 }
 
@@ -21,7 +25,7 @@ fn get_justify_px(font_size: u16, texts: Vec<&String>) -> f32 {
     (font_width as usize * get_justify((screen_width() / font_width as f32) as usize, texts).unwrap_or(0)) as f32
 }
 
-fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8], width: &Option<usize>, extension: &String, pos: usize, i: i32, y: &mut f32) {
+fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8], width: &Option<usize>, extension: &String, pos: usize, i: i32, dx: f32, y: &mut f32) {
     match textures.get(&(i, pos)) {
         Some(_) => {},
         None => {
@@ -45,20 +49,22 @@ fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8
     } else {
         (w - texture.width()) / 2.0
     };
-    draw_texture(texture, x, *y, WHITE);
+    draw_texture(texture, x + dx, *y, WHITE);
     *y += texture.width();
 }
 
-fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, slide: &mut Slide, antibounce: &mut SystemTime) {
+fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, antibounce: &mut SystemTime, transition: &mut SystemTime, transition_direction: &mut f32) {
     let mut changed = false;
 
-    if antibounce.elapsed().unwrap_or(Duration::from_millis(0)).as_millis() >= 200 {
+    if antibounce.elapsed().unwrap_or(Duration::from_millis(0)).as_millis() >= get_transition_duration() {
         if is_key_down(miniquad::KeyCode::Right) || is_key_down(miniquad::KeyCode::Down) || is_key_down(miniquad::KeyCode::L) || is_key_down(miniquad::KeyCode::J) || is_key_down(miniquad::KeyCode::N) {
             *i += 1;
+            *transition_direction = -1.0;
             changed = true;
         }
         if is_key_down(miniquad::KeyCode::Left) || is_key_down(miniquad::KeyCode::Up) || is_key_down(miniquad::KeyCode::H) || is_key_down(miniquad::KeyCode::K) || is_key_down(miniquad::KeyCode::P) {
             *i -= 1;
+            *transition_direction = 1.0;
             changed = true;
         }
         if is_key_down(miniquad::KeyCode::Q) {
@@ -81,10 +87,10 @@ fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, slide: &mut Sli
         else if *i < 0 {
             *i = bema.slides.len() as i32 - 1;
         }
-        if changed {
-            *slide = bema.slides.get(*i as usize).unwrap().clone();
-        }
         *antibounce = SystemTime::now();
+        if changed {
+            *transition = SystemTime::now();
+        }
     }
 }
 
@@ -92,10 +98,10 @@ fn scalef(font_size: u16, scale: f32) -> u16 {
     (font_size as f32 * scale as f32) as u16
 }
 
-fn write_text(text_size: u16, font: Font, y: &mut f32, text: &String) {
+fn write_text(text_size: u16, font: Font, dx: f32, y: &mut f32, text: &String) {
     let splits = text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
     let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
-    let x = get_justify_px(text_size, v2);
+    let x = get_justify_px(text_size, v2) + dx;
     for split in splits {
         draw_text_ex(&split, x, *y, TextParams { font_size: text_size, font,
             ..Default::default()
@@ -104,7 +110,7 @@ fn write_text(text_size: u16, font: Font, y: &mut f32, text: &String) {
     }
 }
 
-fn write_code(text_size: u16, font: Font, y: &mut f32, extension: &String, source: &String) {
+fn write_code(text_size: u16, font: Font, dx: f32, y: &mut f32, extension: &String, source: &String) {
     let ps = SyntaxSet::load_defaults_newlines();
     let ts = ThemeSet::load_defaults();
 
@@ -112,7 +118,7 @@ fn write_code(text_size: u16, font: Font, y: &mut f32, extension: &String, sourc
     let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
     let splits = source.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
     let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
-    let x = get_justify_px(text_size, v2);
+    let x = get_justify_px(text_size, v2) + dx;
     for line in LinesWithEndings::from(source) {
         let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
         let mut dx = 0.0;
@@ -129,45 +135,58 @@ fn write_code(text_size: u16, font: Font, y: &mut f32, extension: &String, sourc
 
 }
 
+fn draw_slide(font: Font, textures: &mut HashMap<(i32, usize), Texture2D>, bema: &Bema, i: i32, dx: f32, scale: f32) {
+    let title_size : u16 = scalef(80, scale);
+    let text_size : u16 = scalef(60, scale);
+    let index_size : u16 = scalef(20, scale);
+
+    let k = if i >= (bema.slides.len() as i32) { 0 } else if i < 0 { bema.slides.len() as i32 - 1 } else { i };
+    let slide = bema.slides.get(k as usize).unwrap();
+    let mut y = index_size as f32;
+    draw_text_ex(format!("{}/{}", i + 1, bema.slides.len()).as_str(), 20.0 + dx, y, TextParams { font_size: index_size, font,
+    ..Default::default()
+    });
+    y += title_size as f32;
+
+    draw_text_ex(&slide.title, get_justify_px(title_size, vec![&slide.title]) + dx, y, TextParams { font_size: title_size, font,
+    ..Default::default()
+    });
+    y += 2.0 * title_size as f32;
+    for (pos, item) in slide.items.iter().enumerate() {
+        match item {
+            SlideItem::Image { image: bytes, extension, width } => {
+                main_draw_texture(textures, bytes, width, &extension, pos, i, dx, &mut y);
+            },
+            SlideItem::Code { extension, source } => {
+                write_code(text_size, font, dx, &mut y, extension, source);
+            },
+            SlideItem::Text { text } => {
+                write_text(text_size, font, dx, &mut y, text);
+            },
+        }
+    };
+}
+
 async  fn main_gui_runner(bema: Bema) {
     let font = load_ttf_font_from_bytes(include_bytes!("3270 Narrow Nerd Font Complete.ttf"));
     let mut i : i32 = 0;
-    let mut slide : Slide = bema.slides.get(i as usize).unwrap().clone();
     let mut antibounce = SystemTime::now(); 
+    let mut transition = SystemTime::now(); 
     let mut textures = HashMap::new();
 
+    let mut transition_direction = 0.0;
     let mut scale : f32 = 1.0;
 
     loop {
-        let title_size : u16 = scalef(80, scale);
-        let text_size : u16 = scalef(60, scale);
-        let index_size : u16 = scalef(20, scale);
         clear_background(BLACK);
-        
-        let mut y = index_size as f32;
-        draw_text_ex(format!("{}/{}", i + 1, bema.slides.len()).as_str(), 20.0, y, TextParams { font_size: index_size, font,
-                                            ..Default::default()
-                                                            });
-        y += title_size as f32;
 
-        draw_text_ex(&slide.title, get_justify_px(title_size, vec![&slide.title]), y, TextParams { font_size: title_size, font,
-                                            ..Default::default()
-                                                            });
-        y += 2.0 * title_size as f32;
-            for (pos, item) in slide.items.iter().enumerate() {
-                match item {
-                    SlideItem::Image { image: bytes, extension, width } => {
-                        main_draw_texture(&mut textures, bytes, width, &extension, pos, i, &mut y);
-                    },
-                    SlideItem::Code { extension, source } => {
-                        write_code(text_size, font, &mut y, extension, source);
-                    },
-                    SlideItem::Text { text } => {
-                        write_text(text_size, font, &mut y, text);
-                    },
-                }
-            };
-        main_capture_input(&bema, &mut i, &mut scale, &mut slide, &mut antibounce); 
+        let dt = transition.elapsed().unwrap_or(Duration::from_millis(0)).as_millis();
+        let dt = if dt > get_transition_duration() || transition_direction == 0.0 { transition_direction = 0.0; get_transition_duration() } else { dt };
+        let dx = transition_direction * screen_width() * dt as f32 / get_transition_duration() as f32;
+        draw_slide(font, &mut textures, &bema, i - 1 + transition_direction as i32, dx - screen_width(), scale);
+        draw_slide(font, &mut textures, &bema, i + transition_direction as i32, dx, scale);
+        draw_slide(font, &mut textures, &bema, i + 1 + transition_direction as i32, dx + screen_width(), scale);
+        main_capture_input(&bema, &mut i, &mut scale, &mut antibounce, &mut transition, &mut transition_direction); 
         next_frame().await;
     }
 }
