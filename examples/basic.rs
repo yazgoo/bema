@@ -7,12 +7,13 @@ use compile_time_run::run_command;
 use image::ImageBuffer;
 use image::DynamicImage;
 
-fn image_from_plot(f: &dyn Fn(&mut [u8], u32, u32) -> Result<(), Box<dyn std::error::Error>>) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    const PLOT_WIDTH : usize = 640;
-    const PLOT_HEIGHT : usize = 480;
-    let mut plot :[u8;PLOT_WIDTH*PLOT_HEIGHT*3] = [0;PLOT_WIDTH*PLOT_HEIGHT*3];
-    let _ = f(&mut plot, PLOT_WIDTH as u32, PLOT_HEIGHT as u32)?;
-    let img = DynamicImage::ImageRgb8(ImageBuffer::from_raw(PLOT_WIDTH as u32, PLOT_HEIGHT as u32, plot.to_vec()).unwrap());
+fn image_from_plot(width: usize, height: usize, f: &dyn Fn(BitMapBackend) -> Result<(), Box<dyn std::error::Error>>) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let size = width * height * 3;
+    let mut plot = Vec::with_capacity(size);
+    for _ in 0..size { plot.push(0); }
+    let backend = BitMapBackend::with_buffer(&mut plot, (width as u32, height as u32));
+    let _ = f(backend)?;
+    let img = DynamicImage::ImageRgb8(ImageBuffer::from_raw(width as u32, height as u32, plot.to_vec()).unwrap());
     let mut bytes: Vec<u8> = Vec::new();
     img.write_to(&mut bytes, image::ImageOutputFormat::Png)?;
     Ok(bytes)
@@ -65,11 +66,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
 
         .slide("plotting (using plotters crate)", |s| {
-            s.image(image_from_plot(
-                    &(|plot: &mut [u8], width: u32, height: u32| -> Result<(), Box<dyn std::error::Error>>  {
-                        let root =
-                            BitMapBackend::with_buffer(plot, (width as u32, height as u32)).into_drawing_area();
-
+            s.image(image_from_plot(800, 500,
+                    &(|backend| -> Result<(), Box<dyn std::error::Error>>  {
+                        let root = backend.into_drawing_area();
                         root.fill(&WHITE)?;
 
                         let mut chart = ChartBuilder::on(&root)
