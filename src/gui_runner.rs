@@ -151,7 +151,7 @@ fn write_code(text_size: u16, font: Font, dx: f32, y: &mut f32, extension: &Stri
 
 }
 
-fn draw_slide(font: Font, font_color: Color, textures: &mut HashMap<(i32, usize), Texture2D>, bema: &Bema, i: i32, dx: f32, scale: f32) {
+fn draw_slide(font: Font, font_color: Color, bar_color: Color, textures: &mut HashMap<(i32, usize), Texture2D>, bema: &Bema, i: i32, dx: f32, scale: f32) {
     let title_size : u16 = scalef(80, scale);
     let text_size : u16 = scalef(60, scale);
     let index_size : u16 = scalef(20, scale);
@@ -159,8 +159,9 @@ fn draw_slide(font: Font, font_color: Color, textures: &mut HashMap<(i32, usize)
     let k = if i >= (bema.slides.len() as i32) { 0 } else if i < 0 { bema.slides.len() as i32 - 1 } else { i };
     let slide = bema.slides.get(k as usize).unwrap();
     let mut y = index_size as f32;
+    draw_rectangle(dx, 0.0, screen_width() * ((i as f32 + 1.0) / bema.slides.len() as f32), index_size as f32 / 10.0, bar_color); 
     draw_text_ex(format!("{}/{}", i + 1, bema.slides.len()).as_str(), 20.0 + dx, y, TextParams { font_size: index_size, font,
-    color: font_color,
+    color: bar_color,
     ..Default::default()
     });
     y += title_size as f32;
@@ -246,15 +247,18 @@ async  fn main_gui_runner(bema: Bema) {
 
     let mut font_color;
     let mut background_color;
+    let mut bar_color;
 
     loop {
         if white_mode {
             font_color = BLACK;
             background_color = WHITE;
+            bar_color = LIGHTGRAY;
         }
         else {
             font_color = WHITE;
             background_color = BLACK;
+            bar_color = DARKGRAY;
         }
         if decoration {
             // draw to texture
@@ -268,16 +272,16 @@ async  fn main_gui_runner(bema: Bema) {
         clear_background(background_color);
 
         if help {
-            draw_slide(font, font_color, &mut textures, &help_slides, 0, 0.0, scale);
+            draw_slide(font, font_color, bar_color, &mut textures, &help_slides, 0, 0.0, scale);
         }
         else {
         let dt = transition.elapsed().unwrap_or(Duration::from_millis(0)).as_millis();
         let dt = if dt > get_transition_duration() || transition_direction == 0.0 { transition_direction = 0.0; get_transition_duration() } else { dt };
         let dx = transition_direction * screen_width() * dt as f32 / get_transition_duration() as f32;
-        if transition_direction != 0.0 { draw_slide(font, font_color, &mut textures, &bema, i - 1 + transition_direction as i32, dx - screen_width(), scale); }
+        if transition_direction != 0.0 { draw_slide(font, font_color, bar_color, &mut textures, &bema, i - 1 + transition_direction as i32, dx - screen_width(), scale); }
 
-        draw_slide(font, font_color, &mut textures, &bema, i + transition_direction as i32, dx, scale);
-        if transition_direction != 0.0 { draw_slide(font, font_color, &mut textures, &bema, i + 1 + transition_direction as i32, dx + screen_width(), scale); }
+        draw_slide(font, font_color, bar_color, &mut textures, &bema, i + transition_direction as i32, dx, scale);
+        if transition_direction != 0.0 { draw_slide(font, font_color, bar_color, &mut textures, &bema, i + 1 + transition_direction as i32, dx + screen_width(), scale); }
         }
 
 
