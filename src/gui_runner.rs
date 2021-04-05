@@ -212,7 +212,7 @@ async  fn main_gui_runner(bema: Bema) {
         }]
     };
     let mut help = false;
-    let mut decoration = false;
+    let mut decoration = true;
     let mut white_mode = false;
 
     let render_target = render_target(screen_width() as u32, (screen_height() * 0.6) as u32);
