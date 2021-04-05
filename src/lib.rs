@@ -66,7 +66,7 @@ impl Slide {
         self
     }
 
-    pub fn image(mut self, image: &'static [u8], extension: &str, width: Option<usize>) -> Slide {
+    pub fn image(mut self, image: Vec<u8>, extension: &str, width: Option<usize>) -> Slide {
         self.items.push(SlideItem::Image { image, extension: String::from(extension), width });
         self
     }

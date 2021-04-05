@@ -2,7 +2,7 @@
 #[derive(Clone)]
 pub enum SlideItem {
     Code{ extension: String, source: String },
-    Image{ image: &'static [u8], extension: String, width: Option<usize> },
+    Image{ image: Vec<u8>, extension: String, width: Option<usize> },
     Text{ text: String },
 }
 
