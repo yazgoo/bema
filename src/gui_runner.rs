@@ -12,6 +12,7 @@ use syntect::util::LinesWithEndings;
 
 use crossterm::Result;
 use macroquad::prelude::*;
+use miniquad::{BlendState, BlendValue, BlendFactor, Equation};
 
 fn get_transition_duration() -> u128 {
     200
@@ -222,27 +223,38 @@ async  fn main_gui_runner(bema: Bema) {
     set_texture_filter(render_target.texture, FilterMode::Nearest);
     let material =
         load_material(CRT_VERTEX_SHADER, CRT_FRAGMENT_SHADER, Default::default()).unwrap();
-    let reverse_material_black =
-        load_material(CRT_VERTEX_SHADER, CRT_FRAGMENT_SHADER_REVERSE_BLACK, Default::default()).unwrap();
-    let reverse_material_white =
-        load_material(CRT_VERTEX_SHADER, CRT_FRAGMENT_SHADER_REVERSE_WHITE, Default::default()).unwrap();
 
-    let mut reverse_material;
+    let pipeline_params = PipelineParams {
+        color_blend: Some(BlendState::new(
+                             Equation::Add,
+                             BlendFactor::Value(BlendValue::SourceAlpha),
+                             BlendFactor::OneMinusValue(BlendValue::SourceAlpha),
+                     )),
+                     ..Default::default()
+    };
+
+    let  reverse_material = load_material(
+        CRT_VERTEX_SHADER,
+        CRT_FRAGMENT_SHADER_REVERSE_BLACK,
+        MaterialParams {
+            pipeline_params,
+            ..Default::default()
+        },
+    )
+        .unwrap();
+
 
     let mut font_color;
     let mut background_color;
 
-    println!("{} {}", screen_width(), screen_height());
     loop {
         if white_mode {
             font_color = BLACK;
             background_color = WHITE;
-            reverse_material = reverse_material_white;
         }
         else {
             font_color = WHITE;
             background_color = BLACK;
-            reverse_material = reverse_material_black;
         }
         if decoration {
             // draw to texture
@@ -330,30 +342,15 @@ precision lowp float;
 varying vec4 color;
 varying vec2 uv;
 uniform sampler2D Texture;
-uniform float u_time;
+uniform vec4 _Time;
 void main() {
     
-    vec2 uv2 = vec2(uv[0], 1.0 - uv[1]); 
+    vec2 uv2 = vec2(uv[0] + 0.003 * uv[1] * sin(mod(_Time.x, 100.0) + 100.0 * uv[1]), 1.0 - uv[1]); 
     vec3 res = texture2D(Texture, uv2).rgb * color.rgb;
-    gl_FragColor = vec4(res * pow(uv2[1], 4.0), 1.0);
+    gl_FragColor = vec4(res, 1.0 * pow(uv2[1], 4.0));
 }
 "#;
 
-
-
-const CRT_FRAGMENT_SHADER_REVERSE_WHITE: &'static str = r#"#version 100
-precision lowp float;
-varying vec4 color;
-varying vec2 uv;
-uniform sampler2D Texture;
-uniform float u_time;
-void main() {
-    
-    vec2 uv2 = vec2(uv[0], 1.0 - uv[1]); 
-    vec3 res = texture2D(Texture, uv2).rgb * color.rgb;
-    gl_FragColor = vec4(res / pow(uv[1], 4.0), 1.0);
-}
-"#;
 const CRT_VERTEX_SHADER: &'static str = "#version 100
 attribute vec3 position;
 attribute vec2 texcoord;
