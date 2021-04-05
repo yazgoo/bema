@@ -200,6 +200,32 @@ fn draw_slide(font: Font, font_color: Color, bar_color: Color, textures: &mut Ha
     };
 }
 
+
+fn draw_help(font: Font, font_color: Color, bar_color: Color, textures: &mut HashMap<(i32, usize), Texture2D>, decoration: bool, white_mode: bool, scale: f32) {
+            draw_slide(font, font_color, bar_color, textures, &Bema { 
+        slides: vec![Slide { 
+            title: "bema help".to_string(), 
+            items: vec![
+                SlideItem::Text { text: "keys:".to_string() },
+                SlideItem::Text { text: "".to_string() },
+                SlideItem::Text { text: format!(indoc! {"
+                next slide      right, down, L, J, N
+                previous slide  left, up, H, K, P
+                exit            Q
+                scale up        M
+                scale down      R
+                screenshot      S
+           [{}]  decoration      D 
+           [{}]  white mode      C 
+           [{}]  help            Escape"
+                }, if decoration { "x" } else { " " }, if white_mode { "x" } else { " " }, "x") },
+            ],
+            vertical_count: 0,
+            current_slideitems: vec![],
+        }]
+    }, 0, 0.0, scale, screen_width());
+}
+
 async  fn main_gui_runner(bema: Bema) {
     let font = load_ttf_font_from_bytes(include_bytes!("3270 Narrow Nerd Font Complete.ttf"));
     let mut i : i32 = 0;
@@ -210,28 +236,6 @@ async  fn main_gui_runner(bema: Bema) {
     let mut transition_direction = 0.0;
     let mut scale : f32 = 1.0;
 
-    let help_slides =  Bema { 
-        slides: vec![Slide { 
-            title: "bema help".to_string(), 
-            items: vec![
-                SlideItem::Text { text: "keys:".to_string() },
-                SlideItem::Text { text: "".to_string() },
-                SlideItem::Text { text: indoc! {"
-                next slide      right, down, L, J, N
-                previous slide  left, up, H, K, P
-                exit            Q
-                scale up        M
-                scale down      R
-                screenshot      S
-                tgl decoration  D 
-                tgl color       C
-                tgl help        Escape"
-                }.to_string() },
-            ],
-            vertical_count: 0,
-            current_slideitems: vec![],
-        }]
-    };
     let mut help = false;
     let mut decoration = true;
     let mut white_mode = false;
@@ -288,7 +292,7 @@ async  fn main_gui_runner(bema: Bema) {
         clear_background(background_color);
 
         if help {
-            draw_slide(font, font_color, bar_color, &mut textures, &help_slides, 0, 0.0, scale, screen_width());
+            draw_help(font, font_color, bar_color, &mut textures, decoration, white_mode, scale);
         }
         else {
             let dt = transition.elapsed().unwrap_or(Duration::from_millis(0)).as_millis();
