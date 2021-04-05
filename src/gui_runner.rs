@@ -59,12 +59,12 @@ fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, antibounce: &mu
     let mut changed = false;
 
     if antibounce.elapsed().unwrap_or(Duration::from_millis(0)).as_millis() >= get_transition_duration() {
-        if is_key_down(miniquad::KeyCode::Right) || is_key_down(miniquad::KeyCode::Down) || is_key_down(miniquad::KeyCode::L) || is_key_down(miniquad::KeyCode::J) || is_key_down(miniquad::KeyCode::N) {
+        if is_key_down(miniquad::KeyCode::Right) || is_key_down(miniquad::KeyCode::Down) || is_key_down(miniquad::KeyCode::L) || is_key_down(miniquad::KeyCode::J) || is_key_down(miniquad::KeyCode::N) || is_key_down(miniquad::KeyCode::Space) || is_mouse_button_down(miniquad::MouseButton::Left) {
             *i += 1;
             *transition_direction = -1.0;
             changed = true;
         }
-        if is_key_down(miniquad::KeyCode::Left) || is_key_down(miniquad::KeyCode::Up) || is_key_down(miniquad::KeyCode::H) || is_key_down(miniquad::KeyCode::K) || is_key_down(miniquad::KeyCode::P) {
+        if is_key_down(miniquad::KeyCode::Left) || is_key_down(miniquad::KeyCode::Up) || is_key_down(miniquad::KeyCode::H) || is_key_down(miniquad::KeyCode::K) || is_key_down(miniquad::KeyCode::P) || is_mouse_button_down(miniquad::MouseButton::Right) {
             *i -= 1;
             *transition_direction = 1.0;
             changed = true;
@@ -291,13 +291,13 @@ async  fn main_gui_runner(bema: Bema) {
             draw_slide(font, font_color, bar_color, &mut textures, &help_slides, 0, 0.0, scale, screen_width());
         }
         else {
-        let dt = transition.elapsed().unwrap_or(Duration::from_millis(0)).as_millis();
-        let dt = if dt > get_transition_duration() || transition_direction == 0.0 { transition_direction = 0.0; get_transition_duration() } else { dt };
-        let dx = transition_direction * screen_width() * dt as f32 / get_transition_duration() as f32;
-        if transition_direction != 0.0 { draw_slide(font, font_color, bar_color, &mut textures, &bema, i - 1 + transition_direction as i32, dx - screen_width(), scale, screen_width()); }
+            let dt = transition.elapsed().unwrap_or(Duration::from_millis(0)).as_millis();
+            let dt = if dt > get_transition_duration() || transition_direction == 0.0 { transition_direction = 0.0; get_transition_duration() } else { dt };
+            let dx = transition_direction * screen_width() * dt as f32 / get_transition_duration() as f32;
+            if transition_direction != 0.0 { draw_slide(font, font_color, bar_color, &mut textures, &bema, i - 1 + transition_direction as i32, dx - screen_width(), scale, screen_width()); }
 
-        draw_slide(font, font_color, bar_color, &mut textures, &bema, i + transition_direction as i32, dx, scale, screen_width());
-        if transition_direction != 0.0 { draw_slide(font, font_color, bar_color, &mut textures, &bema, i + 1 + transition_direction as i32, dx + screen_width(), scale, screen_width()); }
+            draw_slide(font, font_color, bar_color, &mut textures, &bema, i + transition_direction as i32, dx, scale, screen_width());
+            if transition_direction != 0.0 { draw_slide(font, font_color, bar_color, &mut textures, &bema, i + 1 + transition_direction as i32, dx + screen_width(), scale, screen_width()); }
         }
 
 
