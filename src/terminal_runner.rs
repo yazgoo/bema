@@ -73,6 +73,56 @@ impl TerminalRunner {
         }
     }
 
+    fn render_item(&self, item: &SlideItem) -> Result<()> {
+        match item {
+            SlideItem::Image { image, extension, width: _ } => {
+                let mut file = Builder::new()
+                    .prefix("image")
+                    .suffix(extension)
+                    .rand_bytes(5)
+                    .tempfile()?;
+                file.write(image)?;
+                display_image(&file.path().to_str().unwrap().to_string());
+            },
+            SlideItem::Code { extension, source } => {
+                let ps = SyntaxSet::load_defaults_newlines();
+                let ts = ThemeSet::load_defaults();
+
+                let syntax = ps.find_syntax_by_extension(extension).unwrap();
+                let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
+                let splits = source.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
+                let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
+                let whitespaces = get_justify(terminal::size()?.0 as usize, v2)? as usize;
+                for line in LinesWithEndings::from(source) {
+                    let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
+                    let escaped = as_24_bit_terminal_escaped(&ranges[..], true);
+                    stdout()
+                        .execute(ResetColor)?
+                        .execute(MoveRight(whitespaces as u16))?;
+                    print!("{}", escaped);
+                }
+
+                stdout()
+                    .execute(ResetColor)?;
+                },
+                SlideItem::Text { text } => {
+                    let splits = text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
+                    let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
+                    let whitespaces = get_justify(terminal::size()?.0 as usize, v2)?;
+                    for split in splits {
+                        stdout().execute(MoveRight(whitespaces as u16))?;
+                        println!("{}", split);
+                    }
+                },
+                SlideItem::Rows { items } => {
+                    for item2 in items {
+                        self.render_item(item2)?;
+                    }
+                },
+        }
+        Ok(())
+    }
+
     fn render_slide(&self, slide: &Slide) -> Result<()> {
 
         justify_center(terminal::size()?.0 as usize, vec![&slide.title])?;
@@ -86,48 +136,7 @@ impl TerminalRunner {
         .execute(Print("\n\n"))?;
 
         for item in &slide.items {
-            match item {
-                SlideItem::Image { image, extension, width: _ } => {
-                    let mut file = Builder::new()
-                        .prefix("image")
-                        .suffix(extension)
-                        .rand_bytes(5)
-                        .tempfile()?;
-                    file.write(image)?;
-                    display_image(&file.path().to_str().unwrap().to_string());
-                },
-                SlideItem::Code { extension, source } => {
-                    let ps = SyntaxSet::load_defaults_newlines();
-                    let ts = ThemeSet::load_defaults();
-
-                    let syntax = ps.find_syntax_by_extension(extension).unwrap();
-                    let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
-                    let splits = source.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
-                    let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
-                    let whitespaces = get_justify(terminal::size()?.0 as usize, v2)? as usize;
-                    for line in LinesWithEndings::from(source) {
-                        let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
-                        let escaped = as_24_bit_terminal_escaped(&ranges[..], true);
-                        stdout()
-                            .execute(ResetColor)?
-                            .execute(MoveRight(whitespaces as u16))?;
-                        print!("{}", escaped);
-                    }
-
-                    stdout()
-                        .execute(ResetColor)?;
-                    },
-                SlideItem::Text { text } => {
-                    let splits = text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
-                    let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
-                    let whitespaces = get_justify(terminal::size()?.0 as usize, v2)?;
-                    for split in splits {
-                        stdout().execute(MoveRight(whitespaces as u16))?;
-                        println!("{}", split);
-                    }
-                },
-            }
-            //let _ = item.render();
+            self.render_item(item)?;
         }
 
         Ok(())

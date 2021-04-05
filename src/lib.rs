@@ -31,6 +31,8 @@ impl Bema {
         let s = Slide {
             title: String::from(title),
             items: vec![],
+            vertical_count: 0,
+            current_slideitems: vec![],
         };
         self.slides.push(f(s));
         self
@@ -52,22 +54,42 @@ impl Bema {
 }
 
 impl Slide {
-    pub fn text(mut self, s: &str) -> Slide {
-        self.items.push(SlideItem::Text { text: String::from(s) });
+    pub fn push(mut self, item: SlideItem) -> Slide {
+        if self.vertical_count > 0 {
+            self.vertical_count -= 1;
+            self.current_slideitems.push(item);
+            if self.vertical_count == 0 {
+                let mut bkp = vec![];
+                for x in self.current_slideitems.iter() { bkp.push(Box::new(x.clone())) };
+                self.items.push(SlideItem::Rows { items: bkp });
+                self.current_slideitems = vec![];
+            }
+        }
+        else {
+            self.items.push(item);
+        }
         self
+    }
+
+    pub fn text(self, s: &str) -> Slide {
+        self.push(SlideItem::Text { text: String::from(s) })
     }
 
     pub fn t(self, s: &str) -> Slide {
         self.text(s)
     }
 
-    pub fn code(mut self, extension: &str, source: &str) -> Slide {
-        self.items.push(SlideItem::Code { extension: String::from(extension), source: String::from(source) });
-        self
+    pub fn code(self, extension: &str, source: &str) -> Slide {
+        self.push(SlideItem::Code { extension: String::from(extension), source: String::from(source) })
     }
 
-    pub fn image(mut self, image: Vec<u8>, extension: &str, width: Option<usize>) -> Slide {
-        self.items.push(SlideItem::Image { image, extension: String::from(extension), width });
+    pub fn image(self, image: Vec<u8>, extension: &str, width: Option<usize>) -> Slide {
+        self.push(SlideItem::Image { image, extension: String::from(extension), width })
+    }
+
+    pub fn rows(mut self, count: usize) -> Slide {
+        self.vertical_count = count;
+        self.current_slideitems = vec![];
         self
     }
 }

@@ -102,9 +102,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .t("a plot")
         })
 
-        .slide("image", |s| {
-            s.image(include_bytes!("capybara.jpg").to_vec(), ".jpg", Some(500))
-                .t("an image")
+        .slide("image and code aligned vertically", |s| {
+            s.rows(2)
+                .image(include_bytes!("capybara.jpg").to_vec(), ".jpg", Some(500))
+                .code("rs", indoc! {r#"
+                    // main function
+                    fn main() {
+
+                        // Print to the console
+                        println!("Hello World!");
+                    }
+                "#})
         })
 
     }).run()?;

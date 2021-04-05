@@ -22,12 +22,12 @@ pub struct GuiRunner {
 }
 
 
-fn get_justify_px(font_size: u16, texts: Vec<&String>) -> f32 {
+fn get_justify_px(font_size: u16, texts: Vec<&String>, total_width: f32) -> f32 {
     let font_width = font_size / 2;
-    (font_width as usize * get_justify((screen_width() / font_width as f32) as usize, texts).unwrap_or(0)) as f32
+    (font_width as usize * get_justify((total_width/ font_width as f32) as usize, texts).unwrap_or(0)) as f32
 }
 
-fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8], width: &Option<usize>, extension: &String, pos: usize, i: i32, dx: f32, y: &mut f32) {
+fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8], width: &Option<usize>, extension: &String, pos: usize, i: i32, dx: f32, y: &mut f32, total_width: f32) {
     match textures.get(&(i, pos)) {
         Some(_) => {},
         None => {
@@ -45,7 +45,7 @@ fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8
         }
     };
     let texture = *textures.get(&(i, pos)).unwrap();
-    let w = screen_width();
+    let w = total_width;
     let x = if w < texture.width() {
         0.0
     } else {
@@ -113,10 +113,10 @@ fn scalef(font_size: u16, scale: f32) -> u16 {
     (font_size as f32 * scale as f32) as u16
 }
 
-fn write_text(text_size: u16, font: Font, font_color: Color, dx: f32, y: &mut f32, text: &String) {
+fn write_text(text_size: u16, font: Font, font_color: Color, dx: f32, y: &mut f32, text: &String, total_width: f32) {
     let splits = text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
     let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
-    let x = get_justify_px(text_size, v2) + dx;
+    let x = get_justify_px(text_size, v2, total_width) + dx;
     for split in splits {
         draw_text_ex(&split, x, *y, TextParams { font_size: text_size, font,
             color: font_color,
@@ -126,7 +126,7 @@ fn write_text(text_size: u16, font: Font, font_color: Color, dx: f32, y: &mut f3
     }
 }
 
-fn write_code(text_size: u16, font: Font, dx: f32, y: &mut f32, extension: &String, source: &String) {
+fn write_code(text_size: u16, font: Font, dx: f32, y: &mut f32, extension: &String, source: &String, total_width: f32) {
     let ps = SyntaxSet::load_defaults_newlines();
     let ts = ThemeSet::load_defaults();
 
@@ -134,7 +134,7 @@ fn write_code(text_size: u16, font: Font, dx: f32, y: &mut f32, extension: &Stri
     let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
     let splits = source.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
     let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
-    let x = get_justify_px(text_size, v2) + dx;
+    let x = get_justify_px(text_size, v2, total_width) + dx;
     for line in LinesWithEndings::from(source) {
         let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
         let mut dx = 0.0;
@@ -151,38 +151,52 @@ fn write_code(text_size: u16, font: Font, dx: f32, y: &mut f32, extension: &Stri
 
 }
 
-fn draw_slide(font: Font, font_color: Color, bar_color: Color, textures: &mut HashMap<(i32, usize), Texture2D>, bema: &Bema, i: i32, dx: f32, scale: f32) {
-    let title_size : u16 = scalef(80, scale);
+fn draw_item(font: Font, font_color: Color, i: i32, pos: usize, item: &SlideItem, dx: f32, y: &mut f32, total_width: f32, textures: &mut HashMap<(i32, usize), Texture2D>, scale: f32) {
     let text_size : u16 = scalef(60, scale);
+    match item {
+        SlideItem::Image { image: bytes, extension, width } => {
+            main_draw_texture(textures, bytes, width, &extension, pos, i, dx, y, total_width);
+        },
+        SlideItem::Code { extension, source } => {
+            write_code(text_size, font, dx, y, extension, source, total_width);
+        },
+        SlideItem::Text { text } => {
+            write_text(text_size, font, font_color, dx, y, text, total_width);
+        },
+        SlideItem::Rows { items } => {
+            let w = total_width / items.len() as f32;
+            let mut ys = vec![];
+            for (pos2, item2) in items.iter().enumerate() {
+                let mut y2 = *y;
+                draw_item(font, font_color, i, pos, item2, dx + w * pos2 as f32, &mut y2, w, textures, scale);
+                ys.push(y2);
+            }
+            *y = ys.iter().cloned().fold(0.0, |a, b| { a.max(b) })
+        },
+    }
+}
+
+fn draw_slide(font: Font, font_color: Color, bar_color: Color, textures: &mut HashMap<(i32, usize), Texture2D>, bema: &Bema, i: i32, dx: f32, scale: f32, total_width: f32) {
+    let title_size : u16 = scalef(80, scale);
     let index_size : u16 = scalef(20, scale);
 
     let k = if i >= (bema.slides.len() as i32) { 0 } else if i < 0 { bema.slides.len() as i32 - 1 } else { i };
     let slide = bema.slides.get(k as usize).unwrap();
     let mut y = index_size as f32;
-    draw_rectangle(dx, 0.0, screen_width() * ((i as f32 + 1.0) / bema.slides.len() as f32), index_size as f32 / 10.0, bar_color); 
+    draw_rectangle(dx, 0.0, total_width * ((i as f32 + 1.0) / bema.slides.len() as f32), index_size as f32 / 10.0, bar_color); 
     draw_text_ex(format!("{}/{}", i + 1, bema.slides.len()).as_str(), 20.0 + dx, y, TextParams { font_size: index_size, font,
     color: bar_color,
     ..Default::default()
     });
     y += title_size as f32;
 
-    draw_text_ex(&slide.title, get_justify_px(title_size, vec![&slide.title]) + dx, y, TextParams { font_size: title_size, font,
+    draw_text_ex(&slide.title, get_justify_px(title_size, vec![&slide.title], total_width) + dx, y, TextParams { font_size: title_size, font,
     color: font_color,
     ..Default::default()
     });
     y += 2.0 * title_size as f32;
     for (pos, item) in slide.items.iter().enumerate() {
-        match item {
-            SlideItem::Image { image: bytes, extension, width } => {
-                main_draw_texture(textures, bytes, width, &extension, pos, i, dx, &mut y);
-            },
-            SlideItem::Code { extension, source } => {
-                write_code(text_size, font, dx, &mut y, extension, source);
-            },
-            SlideItem::Text { text } => {
-                write_text(text_size, font, font_color, dx, &mut y, text);
-            },
-        }
+        draw_item(font, font_color, i, pos, item, dx, &mut y, total_width, textures, scale);
     };
 }
 
@@ -213,7 +227,9 @@ async  fn main_gui_runner(bema: Bema) {
                 tgl color       C
                 tgl help        Escape"
                 }.to_string() },
-            ]
+            ],
+            vertical_count: 0,
+            current_slideitems: vec![],
         }]
     };
     let mut help = false;
@@ -272,16 +288,16 @@ async  fn main_gui_runner(bema: Bema) {
         clear_background(background_color);
 
         if help {
-            draw_slide(font, font_color, bar_color, &mut textures, &help_slides, 0, 0.0, scale);
+            draw_slide(font, font_color, bar_color, &mut textures, &help_slides, 0, 0.0, scale, screen_width());
         }
         else {
         let dt = transition.elapsed().unwrap_or(Duration::from_millis(0)).as_millis();
         let dt = if dt > get_transition_duration() || transition_direction == 0.0 { transition_direction = 0.0; get_transition_duration() } else { dt };
         let dx = transition_direction * screen_width() * dt as f32 / get_transition_duration() as f32;
-        if transition_direction != 0.0 { draw_slide(font, font_color, bar_color, &mut textures, &bema, i - 1 + transition_direction as i32, dx - screen_width(), scale); }
+        if transition_direction != 0.0 { draw_slide(font, font_color, bar_color, &mut textures, &bema, i - 1 + transition_direction as i32, dx - screen_width(), scale, screen_width()); }
 
-        draw_slide(font, font_color, bar_color, &mut textures, &bema, i + transition_direction as i32, dx, scale);
-        if transition_direction != 0.0 { draw_slide(font, font_color, bar_color, &mut textures, &bema, i + 1 + transition_direction as i32, dx + screen_width(), scale); }
+        draw_slide(font, font_color, bar_color, &mut textures, &bema, i + transition_direction as i32, dx, scale, screen_width());
+        if transition_direction != 0.0 { draw_slide(font, font_color, bar_color, &mut textures, &bema, i + 1 + transition_direction as i32, dx + screen_width(), scale, screen_width()); }
         }
 
 
