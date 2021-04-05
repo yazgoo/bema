@@ -54,7 +54,7 @@ fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8
     *y += texture.width();
 }
 
-fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, antibounce: &mut SystemTime, transition: &mut SystemTime, transition_direction: &mut f32, help: &mut bool, decoration: &mut bool) {
+fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, antibounce: &mut SystemTime, transition: &mut SystemTime, transition_direction: &mut f32, help: &mut bool, decoration: &mut bool, white_mode: &mut bool) {
     let mut changed = false;
 
     if antibounce.elapsed().unwrap_or(Duration::from_millis(0)).as_millis() >= get_transition_duration() {
@@ -83,6 +83,9 @@ fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, antibounce: &mu
         if is_key_down(miniquad::KeyCode::D) {
             *decoration = !*decoration;
         }
+        if is_key_down(miniquad::KeyCode::C) {
+            *white_mode = !*white_mode;
+        }
         if is_key_down(miniquad::KeyCode::S) {
             let png_path = format!("bema_slide_{}.png", *i);
             println!("export png: {}", png_path);
@@ -106,12 +109,13 @@ fn scalef(font_size: u16, scale: f32) -> u16 {
     (font_size as f32 * scale as f32) as u16
 }
 
-fn write_text(text_size: u16, font: Font, dx: f32, y: &mut f32, text: &String) {
+fn write_text(text_size: u16, font: Font, font_color: Color, dx: f32, y: &mut f32, text: &String) {
     let splits = text.split("\n").map( |x| x.to_string()).collect::<Vec<_>>();
     let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
     let x = get_justify_px(text_size, v2) + dx;
     for split in splits {
         draw_text_ex(&split, x, *y, TextParams { font_size: text_size, font,
+            color: font_color,
             ..Default::default()
         });
         *y += text_size as f32;
@@ -143,7 +147,7 @@ fn write_code(text_size: u16, font: Font, dx: f32, y: &mut f32, extension: &Stri
 
 }
 
-fn draw_slide(font: Font, textures: &mut HashMap<(i32, usize), Texture2D>, bema: &Bema, i: i32, dx: f32, scale: f32) {
+fn draw_slide(font: Font, font_color: Color, textures: &mut HashMap<(i32, usize), Texture2D>, bema: &Bema, i: i32, dx: f32, scale: f32) {
     let title_size : u16 = scalef(80, scale);
     let text_size : u16 = scalef(60, scale);
     let index_size : u16 = scalef(20, scale);
@@ -152,11 +156,13 @@ fn draw_slide(font: Font, textures: &mut HashMap<(i32, usize), Texture2D>, bema:
     let slide = bema.slides.get(k as usize).unwrap();
     let mut y = index_size as f32;
     draw_text_ex(format!("{}/{}", i + 1, bema.slides.len()).as_str(), 20.0 + dx, y, TextParams { font_size: index_size, font,
+    color: font_color,
     ..Default::default()
     });
     y += title_size as f32;
 
     draw_text_ex(&slide.title, get_justify_px(title_size, vec![&slide.title]) + dx, y, TextParams { font_size: title_size, font,
+    color: font_color,
     ..Default::default()
     });
     y += 2.0 * title_size as f32;
@@ -169,7 +175,7 @@ fn draw_slide(font: Font, textures: &mut HashMap<(i32, usize), Texture2D>, bema:
                 write_code(text_size, font, dx, &mut y, extension, source);
             },
             SlideItem::Text { text } => {
-                write_text(text_size, font, dx, &mut y, text);
+                write_text(text_size, font, font_color, dx, &mut y, text);
             },
         }
     };
@@ -199,46 +205,64 @@ async  fn main_gui_runner(bema: Bema) {
                 scale down      R
                 screenshot      S
                 tgl decoration  D 
-                enter help      Escape
-                leave help      Escape"
+                tgl color       C
+                tgl help        Escape"
                 }.to_string() },
             ]
         }]
     };
     let mut help = false;
     let mut decoration = false;
+    let mut white_mode = false;
 
     let render_target = render_target(screen_width() as u32, (screen_height() * 0.6) as u32);
     set_texture_filter(render_target.texture, FilterMode::Nearest);
     let material =
         load_material(CRT_VERTEX_SHADER, CRT_FRAGMENT_SHADER, Default::default()).unwrap();
-    let reverse_material =
-        load_material(CRT_VERTEX_SHADER, CRT_FRAGMENT_SHADER_REVERSE, Default::default()).unwrap();
+    let reverse_material_black =
+        load_material(CRT_VERTEX_SHADER, CRT_FRAGMENT_SHADER_REVERSE_BLACK, Default::default()).unwrap();
+    let reverse_material_white =
+        load_material(CRT_VERTEX_SHADER, CRT_FRAGMENT_SHADER_REVERSE_WHITE, Default::default()).unwrap();
 
+    let mut reverse_material;
 
+    let mut font_color;
+    let mut background_color;
+
+    println!("{} {}", screen_width(), screen_height());
     loop {
+        if white_mode {
+            font_color = BLACK;
+            background_color = WHITE;
+            reverse_material = reverse_material_white;
+        }
+        else {
+            font_color = WHITE;
+            background_color = BLACK;
+            reverse_material = reverse_material_black;
+        }
         if decoration {
             // draw to texture
             set_camera(Camera2D {
-                zoom: vec2(0.001055, 0.0025),
+                zoom: vec2(2.0 / screen_width(), 3.0 / screen_height()),
                 target: vec2(screen_width() / 2.0, screen_height() / 3.0),
                 render_target: Some(render_target),
                 ..Default::default()
             });
         }
-        clear_background(BLACK);
+        clear_background(background_color);
 
         if help {
-            draw_slide(font, &mut textures, &help_slides, 0, 0.0, scale);
+            draw_slide(font, font_color, &mut textures, &help_slides, 0, 0.0, scale);
         }
         else {
         let dt = transition.elapsed().unwrap_or(Duration::from_millis(0)).as_millis();
         let dt = if dt > get_transition_duration() || transition_direction == 0.0 { transition_direction = 0.0; get_transition_duration() } else { dt };
         let dx = transition_direction * screen_width() * dt as f32 / get_transition_duration() as f32;
-        if transition_direction != 0.0 { draw_slide(font, &mut textures, &bema, i - 1 + transition_direction as i32, dx - screen_width(), scale); }
+        if transition_direction != 0.0 { draw_slide(font, font_color, &mut textures, &bema, i - 1 + transition_direction as i32, dx - screen_width(), scale); }
 
-        draw_slide(font, &mut textures, &bema, i + transition_direction as i32, dx, scale);
-        if transition_direction != 0.0 { draw_slide(font, &mut textures, &bema, i + 1 + transition_direction as i32, dx + screen_width(), scale); }
+        draw_slide(font, font_color, &mut textures, &bema, i + transition_direction as i32, dx, scale);
+        if transition_direction != 0.0 { draw_slide(font, font_color, &mut textures, &bema, i + 1 + transition_direction as i32, dx + screen_width(), scale); }
         }
 
 
@@ -246,7 +270,7 @@ async  fn main_gui_runner(bema: Bema) {
         if decoration {
             set_default_camera();
 
-            clear_background(BLACK);
+            clear_background(background_color);
             gl_use_material(material);
             draw_texture_ex(
                 render_target.texture,
@@ -271,7 +295,7 @@ async  fn main_gui_runner(bema: Bema) {
             );
             gl_use_default_material();
         }
-        main_capture_input(&bema, &mut i, &mut scale, &mut antibounce, &mut transition, &mut transition_direction, &mut help, &mut decoration); 
+        main_capture_input(&bema, &mut i, &mut scale, &mut antibounce, &mut transition, &mut transition_direction, &mut help, &mut decoration, &mut white_mode); 
         next_frame().await;
     }
 }
@@ -298,7 +322,7 @@ void main() {
 "#;
 
 
-const CRT_FRAGMENT_SHADER_REVERSE: &'static str = r#"#version 100
+const CRT_FRAGMENT_SHADER_REVERSE_BLACK: &'static str = r#"#version 100
 precision lowp float;
 varying vec4 color;
 varying vec2 uv;
@@ -308,10 +332,25 @@ void main() {
     
     vec2 uv2 = vec2(uv[0], 1.0 - uv[1]); 
     vec3 res = texture2D(Texture, uv2).rgb * color.rgb;
-    gl_FragColor = vec4(res * (uv2[1] * uv2[1] * uv2[1] * uv2[1]), 1.0);
+    gl_FragColor = vec4(res * pow(uv2[1], 4.0), 1.0);
 }
 "#;
 
+
+
+const CRT_FRAGMENT_SHADER_REVERSE_WHITE: &'static str = r#"#version 100
+precision lowp float;
+varying vec4 color;
+varying vec2 uv;
+uniform sampler2D Texture;
+uniform float u_time;
+void main() {
+    
+    vec2 uv2 = vec2(uv[0], 1.0 - uv[1]); 
+    vec3 res = texture2D(Texture, uv2).rgb * color.rgb;
+    gl_FragColor = vec4(res / pow(uv[1], 4.0), 1.0);
+}
+"#;
 const CRT_VERTEX_SHADER: &'static str = "#version 100
 attribute vec3 position;
 attribute vec2 texcoord;
