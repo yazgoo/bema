@@ -91,6 +91,9 @@ fn main_capture_input(bema: &Bema, i: &mut i32, scale: &mut f32, antibounce: &mu
             println!("export png: {}", png_path);
             macroquad::texture::get_screen_data().export_png(&png_path);
         }
+        if is_key_down(miniquad::KeyCode::G) {
+            *i = 0;
+        }
         if *i >= bema.slides.len() as i32 {
             *i = 0;
         }
