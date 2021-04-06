@@ -1,6 +1,6 @@
 # 🗣  bema 
 
-[![Discord](https://img.shields.io/discord/828866861151289354.svg?label=discord&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/F684Y8rYwZ)
+[![Discord](https://img.shields.io/badge/discord--blue?logo=discord)](https://discord.gg/F684Y8rYwZ)
 
 Write your next slideshow in rust 🦀, as a self-contained binary 📦.
 
