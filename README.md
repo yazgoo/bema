@@ -1,5 +1,7 @@
 # 🗣  bema 
 
+![Discord](https://discordapp.com/api/guilds/828866861151289354/widget.png?style=shield)
+
 Write your next slideshow in rust 🦀, as a self-contained binary 📦.
 
 ## 🦀 DSL
