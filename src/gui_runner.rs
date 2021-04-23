@@ -31,15 +31,14 @@ fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8
     match textures.get(&(i, pos)) {
         Some(_) => {},
         None => {
-            let quad_context = unsafe { get_internal_gl() }.quad_context;
             let texture = if extension == ".jpg" {
                 let mut img = ImageReader::with_format(std::io::Cursor::new(bytes), image::ImageFormat::Jpeg).decode().unwrap();
                 img = width.map(|w| img.resize(w as u32, (w * 2) as u32, image::imageops::FilterType::Lanczos3)).unwrap_or(img);
                 let mut bytes: Vec<u8> = Vec::new();
                 img.write_to(&mut bytes, image::ImageOutputFormat::Png).unwrap();
-                Texture2D::from_file_with_format(quad_context, &bytes[..], None)
+                Texture2D::from_file_with_format(&bytes[..], None)
             } else {
-                Texture2D::from_file_with_format(quad_context, &bytes[..], None)
+                Texture2D::from_file_with_format(&bytes[..], None)
             };
             textures.insert((i, pos), texture);
         }
@@ -241,7 +240,6 @@ async  fn main_gui_runner(bema: Bema) {
     let mut white_mode = false;
 
     let render_target = render_target(screen_width() as u32, (screen_height() * 0.6) as u32);
-    set_texture_filter(render_target.texture, FilterMode::Nearest);
     let material =
         load_material(CRT_VERTEX_SHADER, CRT_FRAGMENT_SHADER, Default::default()).unwrap();
 
@@ -282,12 +280,13 @@ async  fn main_gui_runner(bema: Bema) {
         }
         if decoration {
             // draw to texture
-            set_camera(Camera2D {
+            let camera = Camera2D {
                 zoom: vec2(2.0 / screen_width(), 3.0 / screen_height()),
                 target: vec2(screen_width() / 2.0, screen_height() / 3.0),
                 render_target: Some(render_target),
                 ..Default::default()
-            });
+            };
+            set_camera(&camera);
         }
         clear_background(background_color);
 
