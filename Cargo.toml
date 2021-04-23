@@ -20,7 +20,7 @@ syntect = "4.4"
 tempfile = "3.2"
 compile-time-run = "0.2"
 blockish = "0.0.9"
-macroquad = "0.3.0-alpha.17"
+macroquad = "0.3.0"
 image = "0.23"
 indoc = "1.0"
 
