@@ -29,6 +29,11 @@ impl HovercraftRunner {
             SlideItem::Text { text } => {
                 println!("{}", text);
             },
+            SlideItem::Cols { items } => {
+                for item2 in items {
+                    self.render_item(item2, img_i)?;
+                }
+            },
             SlideItem::Rows { items } => {
                 for item2 in items {
                     self.render_item(item2, img_i)?;

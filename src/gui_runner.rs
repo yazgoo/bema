@@ -162,7 +162,7 @@ fn draw_item(font: Font, font_color: Color, i: i32, pos: usize, item: &SlideItem
         SlideItem::Text { text } => {
             write_text(text_size, font, font_color, dx, y, text, total_width);
         },
-        SlideItem::Rows { items } => {
+        SlideItem::Cols { items } => {
             let w = total_width / items.len() as f32;
             let mut ys = vec![];
             for (pos2, item2) in items.iter().enumerate() {
@@ -171,6 +171,11 @@ fn draw_item(font: Font, font_color: Color, i: i32, pos: usize, item: &SlideItem
                 ys.push(y2);
             }
             *y = ys.iter().cloned().fold(0.0, |a, b| { a.max(b) })
+        },
+        SlideItem::Rows { items } => {
+            for (_, item2) in items.iter().enumerate() {
+                draw_item(font, font_color, i, pos, item2, dx as f32, y, total_width, textures, scale);
+            }
         },
     }
 }
@@ -219,8 +224,6 @@ fn draw_help(font: Font, font_color: Color, bar_color: Color, textures: &mut Has
            [{}]  help            Escape"
                 }, if decoration { "x" } else { " " }, if white_mode { "x" } else { " " }, "x") },
             ],
-            vertical_count: 0,
-            current_slideitems: vec![],
         }]
     }, 0, 0.0, scale, screen_width());
 }

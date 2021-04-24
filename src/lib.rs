@@ -6,8 +6,6 @@ mod terminal_runner;
 use crate::terminal_runner::TerminalRunner;
 mod gui_runner;
 use crate::gui_runner::GuiRunner;
-
-
 mod bema;
 use crate::bema::{Bema, SlideItem, Slide};
 
@@ -31,8 +29,6 @@ impl Bema {
         let s = Slide {
             title: String::from(title),
             items: vec![],
-            vertical_count: 0,
-            current_slideitems: vec![],
         };
         self.slides.push(f(s));
         self
@@ -53,21 +49,44 @@ impl Bema {
     }
 }
 
+pub struct BoxedSlideItems {
+    items: Vec<SlideItem>,
+}
+
+impl BoxedSlideItems {
+    pub fn push(mut self, item: SlideItem) -> BoxedSlideItems {
+        self.items.push(item);
+        self
+    }
+
+    pub fn text(self, s: &str) -> BoxedSlideItems {
+        self.push(SlideItem::Text { text: String::from(s) })
+    }
+
+    pub fn t(self, s: &str) -> BoxedSlideItems {
+        self.text(s)
+    }
+
+    pub fn code(self, extension: &str, source: &str) -> BoxedSlideItems {
+        self.push(SlideItem::Code { extension: String::from(extension), source: String::from(source) })
+    }
+
+    pub fn image(self, image: Vec<u8>, extension: &str, width: Option<usize>) -> BoxedSlideItems {
+        self.push(SlideItem::Image { image, extension: String::from(extension), width })
+    }
+
+    pub fn cols(self, f: fn(BoxedSlideItems) -> BoxedSlideItems) -> BoxedSlideItems {
+        self.push(SlideItem::Cols { items: f(BoxedSlideItems { items: vec![]}).items })
+    }
+
+    pub fn rows(self, f: fn(BoxedSlideItems) -> BoxedSlideItems) -> BoxedSlideItems {
+        self.push(SlideItem::Rows { items: f(BoxedSlideItems { items: vec![]}).items })
+    }
+}
+
 impl Slide {
     pub fn push(mut self, item: SlideItem) -> Slide {
-        if self.vertical_count > 0 {
-            self.vertical_count -= 1;
-            self.current_slideitems.push(item);
-            if self.vertical_count == 0 {
-                let mut bkp = vec![];
-                for x in self.current_slideitems.iter() { bkp.push(Box::new(x.clone())) };
-                self.items.push(SlideItem::Rows { items: bkp });
-                self.current_slideitems = vec![];
-            }
-        }
-        else {
-            self.items.push(item);
-        }
+        self.items.push(item);
         self
     }
 
@@ -87,9 +106,11 @@ impl Slide {
         self.push(SlideItem::Image { image, extension: String::from(extension), width })
     }
 
-    pub fn rows(mut self, count: usize) -> Slide {
-        self.vertical_count = count;
-        self.current_slideitems = vec![];
-        self
+    pub fn cols(self, f: fn(BoxedSlideItems) -> BoxedSlideItems) -> Slide {
+        self.push(SlideItem::Cols { items: f(BoxedSlideItems { items: vec![]}).items })
+    }
+
+    pub fn rows(self, f: fn(BoxedSlideItems) -> BoxedSlideItems) -> Slide {
+        self.push(SlideItem::Rows { items: f(BoxedSlideItems { items: vec![]}).items })
     }
 }

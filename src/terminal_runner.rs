@@ -114,6 +114,11 @@ impl TerminalRunner {
                         println!("{}", split);
                     }
                 },
+                SlideItem::Cols { items } => {
+                    for item2 in items {
+                        self.render_item(item2)?;
+                    }
+                },
                 SlideItem::Rows { items } => {
                     for item2 in items {
                         self.render_item(item2)?;
