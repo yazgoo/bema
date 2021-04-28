@@ -1,8 +1,7 @@
-use crate::runner::{Runner, get_justify};
+use crate::runner::{Runner, get_justify, fit_image_bytes};
 use crate::bema::{Bema, SlideItem, Slide};
 use indoc::indoc;
 
-use image::io::Reader as ImageReader;
 use std::collections::HashMap;
 use std::time::{SystemTime, Duration};
 use syntect::easy::HighlightLines;
@@ -31,10 +30,7 @@ fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8
     match textures.get(&(i, pos)) {
         Some(_) => {},
         None => {
-                let mut img = ImageReader::with_format(std::io::Cursor::new(bytes), image::ImageFormat::from_extension(extension.replace(".", "")).unwrap()).decode().unwrap();
-                img = width.map(|w| img.resize(w as u32, (w * 2) as u32, image::imageops::FilterType::Lanczos3)).unwrap_or(img);
-                let mut bytes: Vec<u8> = Vec::new();
-                img.write_to(&mut bytes, image::ImageOutputFormat::Png).unwrap();
+                let bytes = fit_image_bytes(bytes, width, extension);
                 let texture = Texture2D::from_file_with_format(&bytes[..], None);
                 textures.insert((i, pos), texture);
             }

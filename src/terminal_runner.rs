@@ -1,4 +1,4 @@
-use crate::runner::{Runner, get_justify};
+use crate::runner::{Runner, get_justify, fit_image_bytes};
 
 use crate::bema::{Bema, SlideItem, Slide};
 use tempfile::Builder;
@@ -59,29 +59,30 @@ impl TerminalRunner {
         Ok(())
     }
 
-    fn read_char(&self) -> Result<char> {
+    fn read_keycode(&self) -> Result<KeyCode> {
         enable_raw_mode()?;
         loop {
             if let Event::Key(KeyEvent {
-                code: KeyCode::Char(c),
+                code,
                 ..
             }) = event::read()?
             {
                 disable_raw_mode()?;
-                return Ok(c);
+                return Ok(code);
             }
         }
     }
 
     fn render_item(&self, item: &SlideItem) -> Result<()> {
         match item {
-            SlideItem::Image { image, extension, width: _ } => {
+            SlideItem::Image { image, extension, width } => {
+                let bytes = fit_image_bytes(image, width, extension);
                 let mut file = Builder::new()
                     .prefix("image")
-                    .suffix(extension)
+                    .suffix(".png")
                     .rand_bytes(5)
                     .tempfile()?;
-                file.write(image)?;
+                file.write(&bytes[..])?;
                 display_image(&file.path().to_str().unwrap().to_string());
             },
             SlideItem::Code { extension, source } => {
@@ -168,13 +169,13 @@ impl Runner for TerminalRunner {
         let mut i : i16 = -1;
         loop {
             if i >= 0 {
-                let c = self.read_char()?;
+                let c = self.read_keycode()?;
                 match c {
-                    'g' => i = 0,
-                    'G' => i = bema.slides.len() as i16 - 1,
-                    'n'|'j'|'l' => i+=1,
-                    'p'|'k'|'h' => i-=1,
-                    'q' => break,
+                    KeyCode::Char('g') => i = 0,
+                    KeyCode::Char('G') => i = bema.slides.len() as i16 - 1,
+                    KeyCode::Char('n')|KeyCode::Char('j')|KeyCode::Char('l')|KeyCode::Right|KeyCode::Down => i+=1,
+                    KeyCode::Char('p')|KeyCode::Char('k')|KeyCode::Char('h')|KeyCode::Left|KeyCode::Up => i-=1,
+                    KeyCode::Char('q') => break,
                     _ => {}
                 }
                 if i as usize >= bema.slides.len() {
