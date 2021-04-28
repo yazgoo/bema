@@ -105,7 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             s.cols(|b| {
                 b.rows(|r| {
                     r.image(include_bytes!("capybara.jpg").to_vec(), ".jpg", Some(500))
-                    .text("a capybara")
+                        .text("a capybara")
                 })
                 .code("rs", indoc! {r#"
                     // main function
@@ -115,6 +115,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         println!("Hello World!");
                     }
                 "#})
+            })
+        })
+
+        .slide("frames (can be used for tables)", |s| {
+            s.framed(|f| {
+                f.cols(|c| {
+                    c.rows(|r| {
+                        r.framed(|f1| {
+                            f1.framed(|f2| f2.text("ruby") )
+                                .code("py", r#"puts "test""#)
+                                .image(include_bytes!("ruby.png").to_vec(), ".png", Some(200))
+                        })
+                    })
+                    .rows(|r| {
+                        r.framed(|f1| {
+                            f1.framed(|f2| f2.text("python") )
+                                .code("py", r#"print("test")"#)
+                                .image(include_bytes!("python.png").to_vec(), ".png", Some(200))
+                        })
+                    })
+                    .rows(|r| {
+                        r.framed(|f1| {
+                            f1.framed(|f2| f2.text("rust") )
+                                .code("rs", r#"println!("test")"#)
+                                .image(include_bytes!("rust.png").to_vec(), ".png", Some(200))
+                        })
+                    })
+                })
             })
         })
 

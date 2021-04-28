@@ -31,17 +31,13 @@ fn main_draw_texture(textures: &mut HashMap<(i32, usize),Texture2D>, bytes: &[u8
     match textures.get(&(i, pos)) {
         Some(_) => {},
         None => {
-            let texture = if extension == ".jpg" {
-                let mut img = ImageReader::with_format(std::io::Cursor::new(bytes), image::ImageFormat::Jpeg).decode().unwrap();
+                let mut img = ImageReader::with_format(std::io::Cursor::new(bytes), image::ImageFormat::from_extension(extension.replace(".", "")).unwrap()).decode().unwrap();
                 img = width.map(|w| img.resize(w as u32, (w * 2) as u32, image::imageops::FilterType::Lanczos3)).unwrap_or(img);
                 let mut bytes: Vec<u8> = Vec::new();
                 img.write_to(&mut bytes, image::ImageOutputFormat::Png).unwrap();
-                Texture2D::from_file_with_format(&bytes[..], None)
-            } else {
-                Texture2D::from_file_with_format(&bytes[..], None)
-            };
-            textures.insert((i, pos), texture);
-        }
+                let texture = Texture2D::from_file_with_format(&bytes[..], None);
+                textures.insert((i, pos), texture);
+            }
     };
     let texture = *textures.get(&(i, pos)).unwrap();
     let w = total_width;
@@ -117,7 +113,7 @@ fn write_text(text_size: u16, font: Font, font_color: Color, dx: f32, y: &mut f3
     let v2: Vec<&String> = splits.iter().map(|s| s).collect::<Vec<&String>>();
     let x = get_justify_px(text_size, v2, total_width) + dx;
     for split in splits {
-        draw_text_ex(&split, x, *y, TextParams { font_size: text_size, font,
+        draw_text_ex(&split, x, *y + text_size as f32, TextParams { font_size: text_size, font,
             color: font_color,
             ..Default::default()
         });
@@ -139,7 +135,7 @@ fn write_code(text_size: u16, font: Font, dx: f32, y: &mut f32, extension: &Stri
         let mut dx = 0.0;
         for range in ranges {
             let c = range.0.foreground;
-            draw_text_ex(range.1, (x + (dx * (text_size as f32 / 2.0))) as f32, *y, TextParams { font_size: text_size, font,
+            draw_text_ex(range.1, (x + (dx * (text_size as f32 / 2.0))) as f32, *y + text_size as f32, TextParams { font_size: text_size, font,
             color: macroquad::color::Color::new(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0, c.a as f32 / 255.0),
             ..Default::default()
             });
@@ -147,7 +143,6 @@ fn write_code(text_size: u16, font: Font, dx: f32, y: &mut f32, extension: &Stri
         }
         *y += text_size as f32;
     }
-
 }
 
 fn draw_item(font: Font, font_color: Color, i: i32, pos: usize, item: &SlideItem, dx: f32, y: &mut f32, total_width: f32, textures: &mut HashMap<(i32, usize), Texture2D>, scale: f32) {
@@ -167,15 +162,22 @@ fn draw_item(font: Font, font_color: Color, i: i32, pos: usize, item: &SlideItem
             let mut ys = vec![];
             for (pos2, item2) in items.iter().enumerate() {
                 let mut y2 = *y;
-                draw_item(font, font_color, i, pos, item2, dx + w * pos2 as f32, &mut y2, w, textures, scale);
+                draw_item(font, font_color, i, pos + pos2, item2, dx + w * pos2 as f32, &mut y2, w, textures, scale);
                 ys.push(y2);
             }
             *y = ys.iter().cloned().fold(0.0, |a, b| { a.max(b) })
         },
         SlideItem::Rows { items } => {
-            for (_, item2) in items.iter().enumerate() {
-                draw_item(font, font_color, i, pos, item2, dx as f32, y, total_width, textures, scale);
+            for (k, item2) in items.iter().enumerate() {
+                draw_item(font, font_color, i, pos + k, item2, dx as f32, y, total_width, textures, scale);
             }
+        },
+        SlideItem::Framed { items } => {
+            let y0 = *y;
+            for (k, item2) in items.iter().enumerate() {
+                draw_item(font, font_color, i, pos + k, item2, dx as f32, y, total_width, textures, scale);
+            }
+            draw_rectangle_lines(dx, y0, total_width, *y - y0, 2.0, font_color);
         },
     }
 }

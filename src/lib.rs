@@ -22,7 +22,6 @@ pub fn slides(f: fn(Bema) -> Bema) -> Bema {
 impl Slide {
 }
 
-
 impl Bema {
     pub fn slide(mut self, title: &str, f: fn(Slide) -> Slide) -> Bema {
 
@@ -49,38 +48,42 @@ impl Bema {
     }
 }
 
-pub struct BoxedSlideItems {
+pub struct SlideItems {
     items: Vec<SlideItem>,
 }
 
-impl BoxedSlideItems {
-    pub fn push(mut self, item: SlideItem) -> BoxedSlideItems {
+impl SlideItems {
+    pub fn push(mut self, item: SlideItem) -> SlideItems {
         self.items.push(item);
         self
     }
 
-    pub fn text(self, s: &str) -> BoxedSlideItems {
+    pub fn text(self, s: &str) -> SlideItems {
         self.push(SlideItem::Text { text: String::from(s) })
     }
 
-    pub fn t(self, s: &str) -> BoxedSlideItems {
+    pub fn t(self, s: &str) -> SlideItems {
         self.text(s)
     }
 
-    pub fn code(self, extension: &str, source: &str) -> BoxedSlideItems {
+    pub fn code(self, extension: &str, source: &str) -> SlideItems {
         self.push(SlideItem::Code { extension: String::from(extension), source: String::from(source) })
     }
 
-    pub fn image(self, image: Vec<u8>, extension: &str, width: Option<usize>) -> BoxedSlideItems {
+    pub fn image(self, image: Vec<u8>, extension: &str, width: Option<usize>) -> SlideItems {
         self.push(SlideItem::Image { image, extension: String::from(extension), width })
     }
 
-    pub fn cols(self, f: fn(BoxedSlideItems) -> BoxedSlideItems) -> BoxedSlideItems {
-        self.push(SlideItem::Cols { items: f(BoxedSlideItems { items: vec![]}).items })
+    pub fn cols(self, f: fn(SlideItems) -> SlideItems) -> SlideItems {
+        self.push(SlideItem::Cols { items: f(SlideItems { items: vec![]}).items })
     }
 
-    pub fn rows(self, f: fn(BoxedSlideItems) -> BoxedSlideItems) -> BoxedSlideItems {
-        self.push(SlideItem::Rows { items: f(BoxedSlideItems { items: vec![]}).items })
+    pub fn rows(self, f: fn(SlideItems) -> SlideItems) -> SlideItems {
+        self.push(SlideItem::Rows { items: f(SlideItems { items: vec![]}).items })
+    }
+
+    pub fn framed(self, f: fn(SlideItems) -> SlideItems) -> SlideItems {
+        self.push(SlideItem::Framed { items: f(SlideItems { items: vec![]}).items })
     }
 }
 
@@ -106,11 +109,15 @@ impl Slide {
         self.push(SlideItem::Image { image, extension: String::from(extension), width })
     }
 
-    pub fn cols(self, f: fn(BoxedSlideItems) -> BoxedSlideItems) -> Slide {
-        self.push(SlideItem::Cols { items: f(BoxedSlideItems { items: vec![]}).items })
+    pub fn cols(self, f: fn(SlideItems) -> SlideItems) -> Slide {
+        self.push(SlideItem::Cols { items: f(SlideItems { items: vec![]}).items })
     }
 
-    pub fn rows(self, f: fn(BoxedSlideItems) -> BoxedSlideItems) -> Slide {
-        self.push(SlideItem::Rows { items: f(BoxedSlideItems { items: vec![]}).items })
+    pub fn rows(self, f: fn(SlideItems) -> SlideItems) -> Slide {
+        self.push(SlideItem::Rows { items: f(SlideItems { items: vec![]}).items })
+    }
+
+    pub fn framed(self, f: fn(SlideItems) -> SlideItems) -> Slide {
+        self.push(SlideItem::Framed { items: f(SlideItems { items: vec![]}).items })
     }
 }

@@ -6,6 +6,7 @@ pub enum SlideItem {
     Text{ text: String },
     Rows { items: Vec<SlideItem> },
     Cols { items: Vec<SlideItem> },
+    Framed { items: Vec<SlideItem> },
 }
 
 #[derive(Clone)]

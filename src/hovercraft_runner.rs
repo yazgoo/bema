@@ -39,6 +39,11 @@ impl HovercraftRunner {
                     self.render_item(item2, img_i)?;
                 }
             },
+            SlideItem::Framed { items } => {
+                for item2 in items {
+                    self.render_item(item2, img_i)?;
+                }
+            },
         }
         Ok(())
     }
