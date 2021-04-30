@@ -52,72 +52,48 @@ pub struct SlideItems {
     items: Vec<SlideItem>,
 }
 
-impl SlideItems {
-    pub fn push(mut self, item: SlideItem) -> SlideItems {
-        self.items.push(item);
-        self
-    }
+pub trait Helper {
+    fn push(self, item: SlideItem) -> Self where Self: Sized;
 
-    pub fn text(self, s: &str) -> SlideItems {
+    fn text(self, s: &str) -> Self where Self: Sized {
         self.push(SlideItem::Text { text: String::from(s) })
     }
 
-    pub fn t(self, s: &str) -> SlideItems {
+    fn t(self, s: &str) -> Self where Self: Sized {
         self.text(s)
     }
 
-    pub fn code(self, extension: &str, source: &str) -> SlideItems {
+    fn code(self, extension: &str, source: &str) -> Self where Self: Sized {
         self.push(SlideItem::Code { extension: String::from(extension), source: String::from(source) })
     }
 
-    pub fn image(self, image: Vec<u8>, extension: &str, width: Option<usize>) -> SlideItems {
+    fn image(self, image: Vec<u8>, extension: &str, width: Option<usize>) -> Self where Self: Sized {
         self.push(SlideItem::Image { image, extension: String::from(extension), width })
     }
 
-    pub fn cols(self, f: fn(SlideItems) -> SlideItems) -> SlideItems {
+    fn cols(self, f: fn(SlideItems) -> SlideItems) -> Self where Self: Sized {
         self.push(SlideItem::Cols { items: f(SlideItems { items: vec![]}).items })
     }
 
-    pub fn rows(self, f: fn(SlideItems) -> SlideItems) -> SlideItems {
+    fn rows(self, f: fn(SlideItems) -> SlideItems) -> Self where Self: Sized {
         self.push(SlideItem::Rows { items: f(SlideItems { items: vec![]}).items })
     }
 
-    pub fn framed(self, f: fn(SlideItems) -> SlideItems) -> SlideItems {
+    fn framed(self, f: fn(SlideItems) -> SlideItems) -> Self where Self: Sized {
         self.push(SlideItem::Framed { items: f(SlideItems { items: vec![]}).items })
     }
 }
 
-impl Slide {
-    pub fn push(mut self, item: SlideItem) -> Slide {
+impl Helper for SlideItems {
+    fn push(mut self, item: SlideItem) -> Self where Self: Sized {
         self.items.push(item);
         self
     }
+}
 
-    pub fn text(self, s: &str) -> Slide {
-        self.push(SlideItem::Text { text: String::from(s) })
-    }
-
-    pub fn t(self, s: &str) -> Slide {
-        self.text(s)
-    }
-
-    pub fn code(self, extension: &str, source: &str) -> Slide {
-        self.push(SlideItem::Code { extension: String::from(extension), source: String::from(source) })
-    }
-
-    pub fn image(self, image: Vec<u8>, extension: &str, width: Option<usize>) -> Slide {
-        self.push(SlideItem::Image { image, extension: String::from(extension), width })
-    }
-
-    pub fn cols(self, f: fn(SlideItems) -> SlideItems) -> Slide {
-        self.push(SlideItem::Cols { items: f(SlideItems { items: vec![]}).items })
-    }
-
-    pub fn rows(self, f: fn(SlideItems) -> SlideItems) -> Slide {
-        self.push(SlideItem::Rows { items: f(SlideItems { items: vec![]}).items })
-    }
-
-    pub fn framed(self, f: fn(SlideItems) -> SlideItems) -> Slide {
-        self.push(SlideItem::Framed { items: f(SlideItems { items: vec![]}).items })
+impl Helper for Slide {
+    fn push(mut self, item: SlideItem) -> Slide {
+        self.items.push(item);
+        self
     }
 }
